@@ -2,6 +2,9 @@ Use a USB RC radio as an Xbox controller for the FPV drone in Bodycam.
 
 **Download:** `BodycamFpvFix.exe` below. Single file, no installation, Windows 10/11. How to set it up: [Guide](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/blob/{{TAG}}/docs/GUIDE.md) · [Anleitung (Deutsch)](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/blob/{{TAG}}/docs/ANLEITUNG.md)
 
+> [!WARNING]
+> Keep the Arm switch **off** whenever you are on foot. While Arm is on, the throttle stick goes to the game and your character walks backwards.
+
 **Check the download.** This exe was built by GitHub Actions from the code at tag `{{TAG}}`.
 
 - SHA-256: `{{SHA256}}`

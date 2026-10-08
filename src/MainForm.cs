@@ -19,6 +19,8 @@ namespace BodycamFpvFix
         DeviceProfile profile;
         bool loading;
         bool driverInstallTried;
+        bool driverReady;
+        DateTime lastScan;
 
         // Top
         readonly ComboBox deviceBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
@@ -205,6 +207,7 @@ namespace BodycamFpvFix
             invertBoxes[stick] = inv;
             t.Controls.Add(inv, 2, row);
             var bar = new Bar { Dock = DockStyle.Fill, Height = 18, Margin = new Padding(6), FromLeft = stick == StickThrottle };
+            if (bar.FromLeft) bar.Value = -1;   // 0 % until a radio sends something
             bars[stick] = bar;
             t.Controls.Add(bar, 3, row);
             var learn = new Button { Text = "Learn", AutoSize = true };
@@ -322,7 +325,7 @@ namespace BodycamFpvFix
             if (list.Count == 0)
             {
                 SelectDevice(null);
-                statusLabel.Text = "No radio found. Connect it by USB and choose USB joystick (HID) mode on the radio, then press Refresh.";
+                statusLabel.Text = "No radio found. Connect it by USB and choose USB joystick (HID) mode on the radio; it shows up here by itself.";
                 return;
             }
             string want = current?.Key ?? settings.LastDeviceKey;
@@ -345,7 +348,7 @@ namespace BodycamFpvFix
             profile = settings.ProfileFor(device);
             settings.LastDeviceKey = device.Key;
             settings.Save();
-            bridge = new Bridge(device, profile) { OutputWanted = wasRunning };
+            bridge = new Bridge(device, profile) { OutputWanted = wasRunning || (settings.AutoStart && driverReady) };
             ShowProfile();
         }
 
@@ -355,6 +358,7 @@ namespace BodycamFpvFix
             driverLabel.Text = ok ? "ViGEmBus driver: installed" : "ViGEmBus driver missing (needed for the virtual Xbox controller).";
             driverLabel.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
             driverButton.Visible = !ok;
+            driverReady = ok;
             return ok;
         }
 
@@ -415,6 +419,8 @@ namespace BodycamFpvFix
                 startButton.Text = "Start";
                 startButton.Enabled = false;
                 rawLabel.Text = "";
+                // No radio yet: look again every two seconds, so plugging it in is enough.
+                if ((DateTime.Now - lastScan).TotalSeconds > 2) { lastScan = DateTime.Now; RefreshDevices(); }
                 return;
             }
             if (bridge.Axes.Count != shownAxisCount) { shownAxisCount = bridge.Axes.Count; ShowProfile(); }
@@ -423,9 +429,9 @@ namespace BodycamFpvFix
             startButton.Text = bridge.OutputWanted ? "Stop" : "Start";
             startButton.BackColor = bridge.OutputActive ? Color.FromArgb(200, 235, 205) : SystemColors.Control;
             statusLabel.Text = bridge.Status;
-            warningLabel.Text = bridge.Warning;
 
             var o = bridge.Output;
+            warningLabel.Text = string.Join(Environment.NewLine, new[] { ThrottleWarning(o), bridge.Warning }.Where(w => w.Length > 0));
             bars[StickThrottle].Value = o.ThrottleLocked ? 0 : o.Throttle;
             bars[StickThrottle].Dimmed = o.ThrottleLocked;
             bars[StickYaw].Value = o.Yaw;
@@ -460,6 +466,20 @@ namespace BodycamFpvFix
                     if (!calMax.TryGetValue(kv.Key, out int mx) || kv.Value > mx) calMax[kv.Key] = kv.Value;
                 }
             if (learning != null) LearnTick(s);
+        }
+
+        /// <summary>
+        /// While the throttle reaches the game, Bodycam also reads it on foot: left stick down means walking backwards.
+        /// Says so in red, because the character keeps walking as long as the arm switch stays on.
+        /// </summary>
+        string ThrottleWarning(OutputSnapshot o)
+        {
+            if (!bridge.OutputActive || !bridge.DeviceConnected || o.ThrottleLocked) return "";
+            if (string.IsNullOrWhiteSpace(profile?.ArmSource))
+                return "No Arm switch set: the throttle always goes to the game, so your character walks on foot. Set one in the tab Arm & Acro.";
+            if (!o.Armed)
+                return "Throttle lock is off: the throttle always goes to the game, so your character walks on foot. Turn the lock on in the tab Arm & Acro.";
+            return "ARM IS ON: the throttle goes to the game. Switch Arm OFF before you are back on foot, otherwise your character walks backwards.";
         }
 
         // ---------- Calibration ----------

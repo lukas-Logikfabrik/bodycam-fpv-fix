@@ -67,6 +67,9 @@ If a stick shows a large value even when it is centered (for example roll at +10
 
 For each one: click **Learn**, then flip the switch you want (for Arm: flip it to the **on** position). The line shows the learned input, for example `Button 5` or `Slider<1023`. **Clear** removes it again.
 
+> [!WARNING]
+> **Arm must be OFF whenever you are on foot.** While Arm is on, the throttle stick goes to the game, and Bodycam reads it on foot as well: with the throttle down, your character walks backwards and keeps walking. While the controller is running and Arm is on, the program shows a red warning at the bottom.
+
 ## 5. More buttons (optional)
 
 ![Buttons tab](screenshot-buttons.png)
@@ -97,7 +100,7 @@ Tick **Start automatically** to skip the Start click next time.
 2. Flip the **Acro** switch. Only Acro mode uses the four sticks like a real quad. In Bodycam's normal mode the left stick moves forward and back and the right stick moves the camera.
 3. Throttle all the way down.
 4. Switch **Arm** on and fly. Keep Arm on during the flight.
-5. After the flight (or a crash) switch Arm off again. For the next drone, start at step 2.
+5. After the flight (or a crash) switch Arm **off** again before you do anything on foot, otherwise your character walks backwards. For the next drone, start at step 2.
 
 ### Rates
 
