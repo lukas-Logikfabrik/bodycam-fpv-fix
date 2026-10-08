@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
@@ -18,6 +19,36 @@ namespace BodycamFpvFix
         public StickMap(string axis, bool invert) { Axis = axis; Invert = invert; }
     }
 
+    /// <summary>Calibrated raw values of one axis, measured with the calibration wizard.</summary>
+    [DataContract]
+    public sealed class AxisCal
+    {
+        [DataMember] public int Min;
+        [DataMember] public int Center;
+        [DataMember] public int Max;
+    }
+
+    /// <summary>One Xbox button driven by a radio switch or button.</summary>
+    [DataContract]
+    public sealed class ButtonMap
+    {
+        public const string Hold = "Hold", TapOnFlip = "TapOnFlip", TapWhenOn = "TapWhenOn";
+
+        [DataMember] public string Target = "";    // one of PadButtons.All
+        [DataMember] public string Source = "";
+        [DataMember] public string Mode = Hold;
+    }
+
+    /// <summary>The Xbox controller buttons the program can press.</summary>
+    public static class PadButtons
+    {
+        public static readonly string[] All =
+        {
+            "A", "B", "X", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "LS", "RS",
+            "D-pad up", "D-pad down", "D-pad left", "D-pad right"
+        };
+    }
+
     /// <summary>
     /// Mapping of one radio. Switch sources are written as "Button 5", "!Button 5", "Slider>1023" or "Ry<1023".
     /// </summary>
@@ -32,6 +63,22 @@ namespace BodycamFpvFix
         [DataMember] public string AcroSource = "";
         [DataMember] public bool LockThrottleWhenDisarmed = true;
         [DataMember] public double Deadzone = 0.01;
+        [DataMember] public Dictionary<string, AxisCal> Calibration = new Dictionary<string, AxisCal>();
+        [DataMember] public List<ButtonMap> Buttons = new List<ButtonMap>();
+
+        /// <summary>
+        /// Makes sure there is one entry per Xbox button. The list is replaced as a whole, so the reader thread
+        /// never sees it change while it walks through it; afterwards the UI only edits the entries' fields.
+        /// The same rule holds for Calibration: assign a new dictionary instead of editing it.
+        /// </summary>
+        public void EnsureButtons()
+        {
+            if (PadButtons.All.All(t => Buttons.Exists(b => b.Target == t))) return;
+            var list = new List<ButtonMap>();
+            foreach (var t in PadButtons.All)
+                list.Add(Buttons.Find(b => b.Target == t) ?? new ButtonMap { Target = t });
+            Buttons = list;
+        }
 
         // The serializer skips constructors and field initializers; keep defaults for fields missing in older files.
         [OnDeserializing]
@@ -40,6 +87,7 @@ namespace BodycamFpvFix
             Throttle = new StickMap("Z", false); Yaw = new StickMap("Rx", false);
             Pitch = new StickMap("Y", true); Roll = new StickMap("X", false);
             ArmSource = ""; AcroSource = ""; LockThrottleWhenDisarmed = true; Deadzone = 0.01;
+            Calibration = new Dictionary<string, AxisCal>(); Buttons = new List<ButtonMap>();
         }
 
         /// <summary>Defaults for a radio. Most radios send AETR on X, Y, Z, Rx.</summary>
@@ -106,6 +154,7 @@ namespace BodycamFpvFix
                 p = DeviceProfile.DefaultFor(device);
                 Profiles[device.Key] = p;
             }
+            p.EnsureButtons();
             return p;
         }
     }

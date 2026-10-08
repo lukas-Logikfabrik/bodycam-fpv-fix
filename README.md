@@ -2,9 +2,13 @@
 
 Fly the FPV drone in **Bodycam** with a real RC radio instead of a gamepad.
 
-Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over USB and turns it into a virtual Xbox controller with the stick layout that Bodycam's Acro mode expects: throttle and yaw on the left stick, pitch and roll on the right. Two switches on your radio arm the drone (RB) and toggle Acro mode (LB).
+Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over USB and turns it into a virtual Xbox controller with the stick layout that Bodycam's Acro mode expects: throttle and yaw on the left stick, pitch and roll on the right. Two switches on your radio arm the drone (RB) and toggle Acro mode (LB). Any other Xbox button can go on any switch or button of the radio, and a calibration wizard corrects off-center sticks and short stick travel.
 
-![Bodycam FPV Fix running with a BETAFPV LiteRadio](docs/screenshot-running.png)
+![Bodycam FPV Fix running with a BETAFPV LiteRadio](docs/screenshot-sticks.png)
+
+| Arm & Acro | Buttons | Raw input |
+|---|---|---|
+| ![Arm and Acro switches](docs/screenshot-arm-acro.png) | ![Free button mapping](docs/screenshot-buttons.png) | ![Raw input from the radio](docs/screenshot-raw.png) |
 
 **Guide:** [English](docs/GUIDE.md) · [Deutsch](docs/ANLEITUNG.md)
 
@@ -15,10 +19,11 @@ Get **`BodycamFpvFix.exe`** from the [latest release](https://github.com/lukas-L
 ## Quick start
 
 1. Connect the radio by USB. If the radio asks for a USB mode, choose **USB Joystick (HID)**.
-2. Start `BodycamFpvFix.exe`. If it says the ViGEmBus driver is missing, click **Install driver**. Windows asks for admin rights once.
-3. Move the sticks. The bars should follow. If an axis is wrong or reversed, click **Learn** next to it and follow the blue prompt.
-4. Click **Learn** next to **Arm (RB)** and flip your arm switch on. Do the same for **Acro mode (LB)**.
-5. Click **Start** and leave the window open while you play.
+2. Start `BodycamFpvFix.exe`. On the first start it fetches the ViGEmBus driver by itself; confirm the Windows admin prompt once and click through the installer.
+3. Tab **Sticks**: move the sticks, the bars should follow. If an axis is wrong or reversed, click **Learn** next to it and follow the blue prompt. Click **Calibrate** once and follow the two steps.
+4. Tab **Arm & Acro**: click **Learn** next to Arm and flip your arm switch on. Do the same for Acro mode. (Preset for the BETAFPV LiteRadio: SA and the rightmost switch.)
+5. Optional, tab **Buttons**: put more Xbox buttons on switches, for example to leave the drone.
+6. Click **Start** and leave the window open while you play.
 
 In Bodycam: take out the drone, flip the Acro switch, put the throttle down and switch Arm on. Keep Arm on while you fly and switch it off when you are back on foot.
 
@@ -29,7 +34,7 @@ In Bodycam: take out the drone, flip the Acro switch, put the throttle down and 
   ```
   gh attestation verify BodycamFpvFix.exe --repo lukas-Logikfabrik/bodycam-fpv-fix
   ```
-- **The program runs with normal user rights.** Admin rights are only needed once, to install the ViGEmBus driver. The program downloads the official, signed installer from the [ViGEmBus release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0) and checks its SHA-256 before starting it.
+- **The program runs with normal user rights.** Admin rights are only needed once, to install the ViGEmBus driver. When the driver is missing, the program downloads the official, signed installer from the [ViGEmBus release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0), checks its SHA-256 and only then starts it.
 - **It reads your radio and nothing else.** No network access except that one driver download. It writes only its settings to `%APPDATA%\BodycamFpvFix` (and the driver installer to the temp folder, deleted afterwards).
 - The exe is not code-signed, so Windows SmartScreen may warn on first start. Click **More info → Run anyway**.
 
@@ -61,7 +66,7 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 
 | Problem | Fix |
 |---|---|
-| The drone or camera keeps rolling or turning by itself | The radio is not calibrated: one stick reports its end position while centered. The program shows a red warning. Calibrate the radio (see its manual), then click Stop and Start. |
+| The drone or camera keeps rolling or turning by itself | Click **Calibrate** in the Sticks tab. If a stick still shows a large value while centered, the radio itself sends its end position: calibrate the radio (see its manual), then calibrate again here. |
 | Bodycam shows 50 % throttle with the stick down | The arm switch is off, so the throttle is locked at center. Switch Arm on. |
 | Left stick moves the drone forward/back, right stick moves the camera | The drone is in Bodycam's normal mode. Flip the Acro switch (LB). |
 | Radio is not in the list | Switch the radio to USB joystick mode and click **Refresh**. |
@@ -75,6 +80,8 @@ The program reads the radio's HID reports directly (all axes and buttons), maps 
 - Right stick Y negative is pitch forward.
 - RB arms the drone, LB toggles Acro mode. The arm switch sends RB only when it is switched on, so radio and game stay in step after a crash.
 - While the arm switch is off, the left stick is held at center so your character does not walk backwards on foot.
+- Extra buttons have three modes: **Hold** (pressed while the switch is on), **Tap on every flip** (for things the game toggles) and **Tap when switched on**.
+- Calibration stores the center and both end positions of each stick. Without it, the program uses the range the radio reports and measures the centers when you press Start.
 
 Settings are saved per radio in `%APPDATA%\BodycamFpvFix\settings.json`.
 

@@ -9,40 +9,67 @@ namespace BodycamFpvFix
 {
     sealed class MainForm : Form
     {
-        enum Learn { None, Throttle, Yaw, Pitch, Roll, Arm, Acro }
+        const string StickThrottle = "Throttle", StickYaw = "Yaw", StickPitch = "Pitch", StickRoll = "Roll";
+        static readonly string[] Sticks = { StickThrottle, StickYaw, StickPitch, StickRoll };
+        static readonly string[] ModeKeys = { ButtonMap.Hold, ButtonMap.TapOnFlip, ButtonMap.TapWhenOn };
+        static readonly string[] ModeNames = { "Hold", "Tap on every flip", "Tap when switched on" };
 
         readonly AppSettings settings = AppSettings.Load();
         Bridge bridge;
         DeviceProfile profile;
         bool loading;
+        bool driverInstallTried;
 
+        // Top
         readonly ComboBox deviceBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-        readonly Button refreshButton = new Button { AutoSize = true };
+        readonly Button refreshButton = new Button { Text = "Refresh", AutoSize = true };
         readonly Label driverLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
-        readonly Button driverButton = new Button { AutoSize = true, Visible = false };
+        readonly Button driverButton = new Button { Text = "Install driver (one admin prompt)", AutoSize = true, Visible = false };
 
-        readonly Dictionary<Learn, ComboBox> axisBoxes = new Dictionary<Learn, ComboBox>();
-        readonly Dictionary<Learn, CheckBox> invertBoxes = new Dictionary<Learn, CheckBox>();
-        readonly Dictionary<Learn, Bar> bars = new Dictionary<Learn, Bar>();
+        // Sticks tab
+        readonly Dictionary<string, ComboBox> axisBoxes = new Dictionary<string, ComboBox>();
+        readonly Dictionary<string, CheckBox> invertBoxes = new Dictionary<string, CheckBox>();
+        readonly Dictionary<string, Bar> bars = new Dictionary<string, Bar>();
+        readonly Button calibrateButton = new Button { Text = "Calibrate", AutoSize = true };
+        readonly Button resetCalButton = new Button { Text = "Reset calibration", AutoSize = true };
+        readonly Label calLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
+
+        // Switches tab
         readonly Label armSourceLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
         readonly Label acroSourceLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
         readonly Label armStateLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
-        readonly CheckBox lockBox = new CheckBox { AutoSize = true };
-        readonly Label rawLabel = new Label { AutoSize = false, Dock = DockStyle.Fill, Font = new Font("Consolas", 8.5f) };
+        readonly CheckBox lockBox = new CheckBox { AutoSize = true, Text = "Lock throttle while the arm switch is off (your character does not walk backwards)" };
 
-        readonly Button startButton = new Button { Height = 36, Dock = DockStyle.Fill };
-        readonly CheckBox autoStartBox = new CheckBox { AutoSize = true, Anchor = AnchorStyles.Left };
-        readonly Label statusLabel = new Label { AutoSize = true, MaximumSize = new Size(600, 0) };
-        readonly Label warningLabel = new Label { AutoSize = true, MaximumSize = new Size(600, 0), ForeColor = Color.Firebrick };
-        readonly Label learnLabel = new Label { AutoSize = true, MaximumSize = new Size(600, 0), ForeColor = Color.RoyalBlue, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+        // Buttons tab
+        readonly Dictionary<string, Label> buttonSourceLabels = new Dictionary<string, Label>();
+        readonly Dictionary<string, ComboBox> buttonModeBoxes = new Dictionary<string, ComboBox>();
+        readonly Dictionary<string, Label> buttonNameLabels = new Dictionary<string, Label>();
+
+        // Raw tab
+        readonly Label rawLabel = new Label { AutoSize = false, Dock = DockStyle.Fill, Font = new Font("Consolas", 9f) };
+
+        // Bottom
+        readonly Button startButton = new Button { Text = "Start", Height = 36, Dock = DockStyle.Fill };
+        readonly CheckBox autoStartBox = new CheckBox { Text = "Start automatically", AutoSize = true, Anchor = AnchorStyles.Left };
+        readonly Label promptLabel = new Label { AutoSize = true, MaximumSize = new Size(640, 0), ForeColor = Color.RoyalBlue, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+        readonly Label statusLabel = new Label { AutoSize = true, MaximumSize = new Size(640, 0) };
+        readonly Label warningLabel = new Label { AutoSize = true, MaximumSize = new Size(640, 0), ForeColor = Color.Firebrick };
         readonly Timer timer = new Timer { Interval = 40 };
 
-        Learn learning = Learn.None;
+        // Learn: "stick:Throttle", "arm", "acro" or "btn:A"
+        string learning;
         DateTime learnStarted;
         InputState learnBase;
         string learnCandidate;
         DateTime learnCandidateSince;
+
+        // Calibration wizard: 0 = off, 1 = centers, 2 = ranges
+        int calStep;
+        Dictionary<string, int> calCenter, calMin, calMax;
+
         DateTime lastRawUpdate;
+        Font boldFont;
+        int shownAxisCount = -1;
 
         public MainForm()
         {
@@ -50,28 +77,37 @@ namespace BodycamFpvFix
             Font = new Font("Segoe UI", 9f);
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96f, 96f);
-            ClientSize = new Size(640, 760);
-            MinimumSize = new Size(560, 640);
+            ClientSize = new Size(700, 660);
+            MinimumSize = new Size(620, 640);
             StartPosition = FormStartPosition.CenterScreen;
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
+            boldFont = new Font(Font, FontStyle.Bold);
             BuildLayout();
 
             deviceBox.SelectedIndexChanged += (s, e) => SelectDevice(deviceBox.SelectedItem as HidDeviceInfo);
             refreshButton.Click += (s, e) => RefreshDevices();
             driverButton.Click += async (s, e) => await InstallDriver();
-            startButton.Click += (s, e) => ToggleOutput();
+            startButton.Click += (s, e) => { if (bridge != null) bridge.OutputWanted = !bridge.OutputWanted; };
             autoStartBox.CheckedChanged += (s, e) => { settings.AutoStart = autoStartBox.Checked; settings.Save(); };
             lockBox.CheckedChanged += (s, e) => { if (!loading && profile != null) { profile.LockThrottleWhenDisarmed = lockBox.Checked; settings.Save(); } };
+            calibrateButton.Click += (s, e) => CalibrateClicked();
+            resetCalButton.Click += (s, e) => ResetCalClicked();
             timer.Tick += (s, e) => Tick();
 
             autoStartBox.Checked = settings.AutoStart;
             Shown += async (s, e) =>
             {
                 RefreshDevices();
-                await CheckDriver();
-                if (settings.AutoStart && bridge != null && driverButton.Visible == false) bridge.OutputWanted = true;
                 timer.Start();
+                bool driverOk = await CheckDriver();
+                if (!driverOk && !driverInstallTried)
+                {
+                    // First start without the driver: fetch and start it right away; Windows asks for admin rights once.
+                    driverInstallTried = true;
+                    driverOk = await InstallDriver();
+                }
+                if (driverOk && settings.AutoStart && bridge != null) bridge.OutputWanted = true;
             };
             FormClosing += (s, e) => { timer.Stop(); settings.Save(); bridge?.Dispose(); };
         }
@@ -80,133 +116,198 @@ namespace BodycamFpvFix
 
         void BuildLayout()
         {
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(12), AutoScroll = true };
+            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(12) };
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
             Controls.Add(root);
 
+            // Radio and driver
             var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3 };
             top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             top.Controls.Add(new Label { Text = "Radio:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
             top.Controls.Add(deviceBox, 1, 0);
-            refreshButton.Text = "Refresh";
             top.Controls.Add(refreshButton, 2, 0);
             var driverRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false };
             driverRow.Controls.Add(driverLabel);
-            driverButton.Text = "Install driver (one admin prompt)";
             driverRow.Controls.Add(driverButton);
             top.Controls.Add(driverRow, 0, 1);
             top.SetColumnSpan(driverRow, 3);
-            root.Controls.Add(top);
+            root.Controls.Add(top, 0, 0);
 
-            // Sticks
-            var sticks = new GroupBox { Text = "Sticks (Mode 2)", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
-            var st = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 5 };
-            st.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            st.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
-            st.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            st.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            st.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            AddStickRow(st, 0, Learn.Throttle, "Throttle");
-            AddStickRow(st, 1, Learn.Yaw, "Yaw");
-            AddStickRow(st, 2, Learn.Pitch, "Pitch");
-            AddStickRow(st, 3, Learn.Roll, "Roll");
-            sticks.Controls.Add(st);
-            root.Controls.Add(sticks);
-
-            // Switches
-            var switches = new GroupBox { Text = "Switches", Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8) };
-            var sw = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 4 };
-            sw.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            sw.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            sw.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            sw.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            AddSwitchRow(sw, 0, Learn.Arm, "Arm (RB)", armSourceLabel);
-            AddSwitchRow(sw, 1, Learn.Acro, "Acro mode (LB)", acroSourceLabel);
-            lockBox.Text = "Lock throttle while the arm switch is off (your character does not walk backwards)";
-            sw.Controls.Add(lockBox, 0, 2);
-            sw.SetColumnSpan(lockBox, 4);
-            sw.Controls.Add(armStateLabel, 0, 3);
-            sw.SetColumnSpan(armStateLabel, 4);
-            switches.Controls.Add(sw);
-            root.Controls.Add(switches);
-
-            // Raw input
-            var raw = new GroupBox { Text = "Raw input from the radio", Dock = DockStyle.Top, Height = 110, Padding = new Padding(8) };
+            var tabs = new TabControl { Dock = DockStyle.Fill };
+            tabs.TabPages.Add(SticksPage());
+            tabs.TabPages.Add(SwitchesPage());
+            tabs.TabPages.Add(ButtonsPage());
+            var raw = new TabPage("Raw input") { Padding = new Padding(10) };
             raw.Controls.Add(rawLabel);
-            root.Controls.Add(raw);
+            tabs.TabPages.Add(raw);
+            root.Controls.Add(tabs, 0, 1);
 
-            // Start / status
-            var bottom = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            bottom.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            bottom.Controls.Add(startButton, 0, 0);
-            autoStartBox.Text = "Start automatically";
-            bottom.Controls.Add(autoStartBox, 1, 0);
-            root.Controls.Add(bottom);
-            root.Controls.Add(learnLabel);
-            root.Controls.Add(statusLabel);
-            root.Controls.Add(warningLabel);
-
-            var hint = new Label
+            // Start, messages, hint
+            var bottom = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1 };
+            var startRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
+            startRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            startRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            startRow.Controls.Add(startButton, 0, 0);
+            startRow.Controls.Add(autoStartBox, 1, 0);
+            bottom.Controls.Add(startRow);
+            bottom.Controls.Add(promptLabel);
+            bottom.Controls.Add(statusLabel);
+            bottom.Controls.Add(warningLabel);
+            bottom.Controls.Add(new Label
             {
                 AutoSize = true,
-                MaximumSize = new Size(600, 0),
+                MaximumSize = new Size(640, 0),
                 ForeColor = SystemColors.GrayText,
                 Text = "In Bodycam: take out the drone, flip the Acro switch (LB), throttle down, then switch Arm on (RB). " +
                        "Keep Arm on while flying, switch it off when you are back on foot. " +
                        "Tip: the default drone RC Rate in Bodycam is 2.0, which is very twitchy; around 1.0 feels like a normal quad."
-            };
-            root.Controls.Add(hint);
+            });
+            root.Controls.Add(bottom, 0, 2);
         }
 
-        void AddStickRow(TableLayoutPanel t, int row, Learn kind, string title)
+        TabPage SticksPage()
         {
-            t.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left, Width = 70 }, 0, row);
+            var page = new TabPage("Sticks") { Padding = new Padding(10) };
+            var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5 };
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var intro = new Label { Text = "Mode 2: throttle and yaw on the left stick, pitch and roll on the right.", AutoSize = true, ForeColor = SystemColors.GrayText };
+            t.Controls.Add(intro, 0, 0);
+            t.SetColumnSpan(intro, 5);
+            for (int i = 0; i < Sticks.Length; i++) AddStickRow(t, i + 1, Sticks[i]);
+
+            var cal = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0, 10, 0, 0) };
+            cal.Controls.Add(calibrateButton);
+            cal.Controls.Add(resetCalButton);
+            cal.Controls.Add(calLabel);
+            t.Controls.Add(cal, 0, Sticks.Length + 1);
+            t.SetColumnSpan(cal, 5);
+            page.Controls.Add(t);
+            return page;
+        }
+
+        void AddStickRow(TableLayoutPanel t, int row, string stick)
+        {
+            t.Controls.Add(new Label { Text = stick, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
             var box = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
-            box.SelectedIndexChanged += (s, e) => { if (!loading && profile != null) { StickOf(kind).Axis = box.SelectedItem as string ?? ""; settings.Save(); } };
-            axisBoxes[kind] = box;
+            box.SelectedIndexChanged += (s, e) => { if (!loading && profile != null) { StickOf(stick).Axis = box.SelectedItem as string ?? ""; settings.Save(); } };
+            axisBoxes[stick] = box;
             t.Controls.Add(box, 1, row);
             var inv = new CheckBox { Text = "invert", AutoSize = true, Anchor = AnchorStyles.Left };
-            inv.CheckedChanged += (s, e) => { if (!loading && profile != null) { StickOf(kind).Invert = inv.Checked; settings.Save(); } };
-            invertBoxes[kind] = inv;
+            inv.CheckedChanged += (s, e) => { if (!loading && profile != null) { StickOf(stick).Invert = inv.Checked; settings.Save(); } };
+            invertBoxes[stick] = inv;
             t.Controls.Add(inv, 2, row);
-            var bar = new Bar { Dock = DockStyle.Fill, Height = 18, Margin = new Padding(6, 6, 6, 6), FromLeft = kind == Learn.Throttle };
-            bars[kind] = bar;
+            var bar = new Bar { Dock = DockStyle.Fill, Height = 18, Margin = new Padding(6), FromLeft = stick == StickThrottle };
+            bars[stick] = bar;
             t.Controls.Add(bar, 3, row);
             var learn = new Button { Text = "Learn", AutoSize = true };
-            learn.Click += (s, e) => StartLearn(kind);
+            learn.Click += (s, e) => StartLearn("stick:" + stick);
             t.Controls.Add(learn, 4, row);
         }
 
-        void AddSwitchRow(TableLayoutPanel t, int row, Learn kind, string title, Label sourceLabel)
+        TabPage SwitchesPage()
+        {
+            var page = new TabPage("Arm & Acro") { Padding = new Padding(10) };
+            var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4 };
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            AddSwitchRow(t, 0, "arm", "Arm (RB, press when switched on)", armSourceLabel);
+            AddSwitchRow(t, 1, "acro", "Acro mode (LB, press on every flip)", acroSourceLabel);
+            t.Controls.Add(lockBox, 0, 2);
+            t.SetColumnSpan(lockBox, 4);
+            t.Controls.Add(armStateLabel, 0, 3);
+            t.SetColumnSpan(armStateLabel, 4);
+            page.Controls.Add(t);
+            return page;
+        }
+
+        void AddSwitchRow(TableLayoutPanel t, int row, string key, string title, Label sourceLabel)
         {
             t.Controls.Add(new Label { Text = title, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
             t.Controls.Add(sourceLabel, 1, row);
             var learn = new Button { Text = "Learn", AutoSize = true };
-            learn.Click += (s, e) => StartLearn(kind);
+            learn.Click += (s, e) => StartLearn(key);
             t.Controls.Add(learn, 2, row);
             var clear = new Button { Text = "Clear", AutoSize = true };
             clear.Click += (s, e) =>
             {
                 if (profile == null) return;
-                if (kind == Learn.Arm) profile.ArmSource = ""; else profile.AcroSource = "";
+                if (key == "arm") profile.ArmSource = ""; else profile.AcroSource = "";
                 settings.Save();
                 ShowProfile();
             };
             t.Controls.Add(clear, 3, row);
         }
 
-        StickMap StickOf(Learn kind)
+        TabPage ButtonsPage()
         {
-            switch (kind)
+            var page = new TabPage("Buttons") { Padding = new Padding(10), AutoScroll = true };
+            var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5 };
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+            var intro = new Label
             {
-                case Learn.Throttle: return profile.Throttle;
-                case Learn.Yaw: return profile.Yaw;
-                case Learn.Pitch: return profile.Pitch;
+                Text = "Put any Xbox button on a switch or button of your radio. Bodycam already uses RB for arming and LB for Acro mode (tab Arm & Acro).",
+                AutoSize = true, MaximumSize = new Size(620, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 6), UseMnemonic = false
+            };
+            t.Controls.Add(intro, 0, 0);
+            t.SetColumnSpan(intro, 5);
+            int row = 1;
+            foreach (var target in PadButtons.All)
+            {
+                string tg = target;
+                var name = new Label { Text = tg, AutoSize = true, Anchor = AnchorStyles.Left, Width = 80 };
+                buttonNameLabels[tg] = name;
+                t.Controls.Add(name, 0, row);
+                var src = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
+                buttonSourceLabels[tg] = src;
+                t.Controls.Add(src, 1, row);
+                var mode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+                mode.Items.AddRange(ModeNames);
+                mode.SelectedIndexChanged += (s, e) =>
+                {
+                    if (loading || profile == null || mode.SelectedIndex < 0) return;
+                    ButtonOf(tg).Mode = ModeKeys[mode.SelectedIndex];
+                    settings.Save();
+                };
+                buttonModeBoxes[tg] = mode;
+                t.Controls.Add(mode, 2, row);
+                var learn = new Button { Text = "Learn", AutoSize = true };
+                learn.Click += (s, e) => StartLearn("btn:" + tg);
+                t.Controls.Add(learn, 3, row);
+                var clear = new Button { Text = "Clear", AutoSize = true };
+                clear.Click += (s, e) => { if (profile != null) { ButtonOf(tg).Source = ""; settings.Save(); ShowProfile(); } };
+                t.Controls.Add(clear, 4, row);
+                row++;
+            }
+            page.Controls.Add(t);
+            return page;
+        }
+
+        StickMap StickOf(string stick)
+        {
+            switch (stick)
+            {
+                case StickThrottle: return profile.Throttle;
+                case StickYaw: return profile.Yaw;
+                case StickPitch: return profile.Pitch;
                 default: return profile.Roll;
             }
         }
+
+        ButtonMap ButtonOf(string target) => profile.Buttons.First(b => b.Target == target);
 
         // ---------- Devices and driver ----------
 
@@ -233,11 +334,13 @@ namespace BodycamFpvFix
 
         void SelectDevice(HidDeviceInfo device)
         {
-            if (bridge != null && device != null && bridge.Profile == settings.ProfileFor(device) && bridge.DeviceConnected) return;
+            if (bridge != null && device != null && bridge.Profile == settings.ProfileFor(device)) return;   // same radio after Refresh
             bool wasRunning = bridge?.OutputWanted ?? false;
             bridge?.Dispose();
             bridge = null;
             profile = null;
+            calStep = 0;
+            learning = null;
             if (device == null) return;
             profile = settings.ProfileFor(device);
             settings.LastDeviceKey = device.Key;
@@ -246,33 +349,28 @@ namespace BodycamFpvFix
             ShowProfile();
         }
 
-        async Task CheckDriver()
+        async Task<bool> CheckDriver()
         {
             bool ok = await Task.Run(() => VirtualPad.DriverInstalled());
-            driverLabel.Text = ok ? "ViGEmBus driver: installed"
-                                  : "ViGEmBus driver missing (needed for the virtual Xbox controller).";
+            driverLabel.Text = ok ? "ViGEmBus driver: installed" : "ViGEmBus driver missing (needed for the virtual Xbox controller).";
             driverLabel.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
             driverButton.Visible = !ok;
-            startButton.Enabled = ok;
+            return ok;
         }
 
-        async Task InstallDriver()
+        async Task<bool> InstallDriver()
         {
             driverButton.Enabled = false;
-            driverLabel.Text = "Downloading and starting the driver installer ...";
+            driverLabel.Text = "Downloading the ViGEmBus driver installer, Windows will ask for admin rights ...";
+            driverLabel.ForeColor = SystemColors.ControlText;
             string error = await Task.Run(() => DriverSetup.Install());
             driverButton.Enabled = true;
-            await CheckDriver();
+            bool ok = await CheckDriver();
             if (error != null) MessageBox.Show(this, error, "Bodycam FPV Fix", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            else if (driverButton.Visible)
+            else if (!ok)
                 MessageBox.Show(this, "The driver is still not reachable. If the installer asked for it, restart Windows and open this program again.",
                                 "Bodycam FPV Fix", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
-        void ToggleOutput()
-        {
-            if (bridge == null) return;
-            bridge.OutputWanted = !bridge.OutputWanted;
+            return ok;
         }
 
         // ---------- Profile display ----------
@@ -282,27 +380,33 @@ namespace BodycamFpvFix
             if (profile == null) return;
             loading = true;
             var names = bridge?.Axes.Select(a => a.Name).ToList() ?? new List<string>();
-            foreach (var kind in new[] { Learn.Throttle, Learn.Yaw, Learn.Pitch, Learn.Roll })
+            foreach (var stick in Sticks)
             {
-                var box = axisBoxes[kind];
-                var m = StickOf(kind);
+                var box = axisBoxes[stick];
+                var m = StickOf(stick);
                 box.BeginUpdate();
                 box.Items.Clear();
                 foreach (var n in names) box.Items.Add(n);
                 if (!string.IsNullOrEmpty(m.Axis) && !names.Contains(m.Axis)) box.Items.Add(m.Axis);
                 box.SelectedItem = m.Axis;
                 box.EndUpdate();
-                invertBoxes[kind].Checked = m.Invert;
+                invertBoxes[stick].Checked = m.Invert;
             }
             armSourceLabel.Text = Source.Describe(profile.ArmSource);
             acroSourceLabel.Text = Source.Describe(profile.AcroSource);
             lockBox.Checked = profile.LockThrottleWhenDisarmed;
+            foreach (var target in PadButtons.All)
+            {
+                var b = ButtonOf(target);
+                buttonSourceLabels[target].Text = Source.Describe(b.Source);
+                buttonModeBoxes[target].SelectedIndex = Math.Max(0, Array.IndexOf(ModeKeys, b.Mode));
+            }
+            calLabel.Text = profile.Calibration.Count == 0 ? "Not calibrated (uses the radio's own range)"
+                                                           : "Calibrated: " + string.Join(", ", profile.Calibration.Keys);
             loading = false;
         }
 
         // ---------- Live update ----------
-
-        int shownAxisCount = -1;
 
         void Tick()
         {
@@ -318,53 +422,123 @@ namespace BodycamFpvFix
             startButton.Enabled = !driverButton.Visible && bridge.DeviceConnected;
             startButton.Text = bridge.OutputWanted ? "Stop" : "Start";
             startButton.BackColor = bridge.OutputActive ? Color.FromArgb(200, 235, 205) : SystemColors.Control;
-            if (learning == Learn.None) statusLabel.Text = bridge.Status;
+            statusLabel.Text = bridge.Status;
             warningLabel.Text = bridge.Warning;
 
             var o = bridge.Output;
-            bars[Learn.Throttle].Value = o.ThrottleLocked ? 0 : o.Throttle;
-            bars[Learn.Throttle].Dimmed = o.ThrottleLocked;
-            bars[Learn.Yaw].Value = o.Yaw;
-            bars[Learn.Pitch].Value = o.Pitch;
-            bars[Learn.Roll].Value = o.Roll;
+            bars[StickThrottle].Value = o.ThrottleLocked ? 0 : o.Throttle;
+            bars[StickThrottle].Dimmed = o.ThrottleLocked;
+            bars[StickYaw].Value = o.Yaw;
+            bars[StickPitch].Value = o.Pitch;
+            bars[StickRoll].Value = o.Roll;
             armStateLabel.Text = string.IsNullOrWhiteSpace(profile?.ArmSource) ? ""
                 : o.Armed ? "Arm switch: ON, throttle free"
                           : "Arm switch: OFF" + (o.ThrottleLocked ? ", throttle locked at center" : "");
+            foreach (var kv in buttonNameLabels)
+            {
+                var want = o.Pressed.Contains(kv.Key) ? boldFont : Font;
+                if (kv.Value.Font != want) kv.Value.Font = want;
+            }
 
             var s = bridge.Last;
             if (s != null && (DateTime.Now - lastRawUpdate).TotalMilliseconds > 120)
             {
                 lastRawUpdate = DateTime.Now;
-                var parts = bridge.Axes.Select(a => $"{a.Name}={(s.Axes.TryGetValue(a.Name, out int v) ? v : 0)}");
-                string axes = string.Join("  ", parts);
+                string axes = string.Join(Environment.NewLine, bridge.Axes.Select(a =>
+                    $"{a.Name,-8} {(s.Axes.TryGetValue(a.Name, out int v) ? v : 0),6}   range {a.Min}..{a.Max}"));
                 string buttons = s.Buttons.Count == 0 ? "-" : string.Join(", ", s.Buttons.OrderBy(b => b));
-                rawLabel.Text = axes + Environment.NewLine + "Buttons pressed: " + buttons;
+                string pressed = o.Pressed.Count == 0 ? "-" : string.Join(", ", o.Pressed);
+                rawLabel.Text = axes + Environment.NewLine + Environment.NewLine +
+                                "Radio buttons pressed: " + buttons + Environment.NewLine +
+                                "Xbox buttons sent:     " + pressed;
             }
 
-            if (learning != Learn.None) LearnTick(s);
+            if (calStep == 2 && s != null)
+                foreach (var kv in s.Axes)
+                {
+                    if (!calMin.TryGetValue(kv.Key, out int mn) || kv.Value < mn) calMin[kv.Key] = kv.Value;
+                    if (!calMax.TryGetValue(kv.Key, out int mx) || kv.Value > mx) calMax[kv.Key] = kv.Value;
+                }
+            if (learning != null) LearnTick(s);
+        }
+
+        // ---------- Calibration ----------
+
+        void CalibrateClicked()
+        {
+            var s = bridge?.Last;
+            if (s == null || profile == null) { promptLabel.Text = "Connect the radio first."; return; }
+            learning = null;
+            if (calStep == 0)
+            {
+                calStep = 1;
+                calibrateButton.Text = "Next";
+                resetCalButton.Text = "Cancel";
+                promptLabel.Text = "Calibration 1/2: let go of both sticks (throttle all the way down), then click Next.";
+            }
+            else if (calStep == 1)
+            {
+                calCenter = new Dictionary<string, int>(s.Axes);
+                calMin = new Dictionary<string, int>(s.Axes);
+                calMax = new Dictionary<string, int>(s.Axes);
+                calStep = 2;
+                calibrateButton.Text = "Finish";
+                promptLabel.Text = "Calibration 2/2: move both sticks to every corner and around the edge a few times, then click Finish.";
+            }
+            else
+            {
+                var result = new Dictionary<string, AxisCal>();
+                foreach (var a in bridge.Axes)
+                {
+                    if (!calMin.TryGetValue(a.Name, out int mn) || !calMax.TryGetValue(a.Name, out int mx) || !calCenter.TryGetValue(a.Name, out int c)) continue;
+                    if (mx - mn < (a.Max - a.Min) / 4) continue;   // not moved: probably a switch or an unused axis
+                    result[a.Name] = new AxisCal { Min = mn, Center = Math.Max(mn, Math.Min(mx, c)), Max = mx };
+                }
+                EndCalibration();
+                if (result.Count == 0) { promptLabel.Text = "No stick movement seen. Calibration not changed."; return; }
+                profile.Calibration = result;   // replaced as a whole, see DeviceProfile.EnsureButtons
+                settings.Save();
+                ShowProfile();
+                promptLabel.Text = "Calibrated: " + string.Join(", ", result.Keys) + ". Press Stop and Start if the controller is running.";
+            }
+        }
+
+        void ResetCalClicked()
+        {
+            if (calStep != 0) { EndCalibration(); promptLabel.Text = "Calibration cancelled."; return; }
+            if (profile == null) return;
+            profile.Calibration = new Dictionary<string, AxisCal>();
+            settings.Save();
+            ShowProfile();
+            promptLabel.Text = "Calibration removed. The program uses the radio's own range again.";
+        }
+
+        void EndCalibration()
+        {
+            calStep = 0;
+            calibrateButton.Text = "Calibrate";
+            resetCalButton.Text = "Reset calibration";
         }
 
         // ---------- Learn ----------
 
-        void StartLearn(Learn kind)
+        void StartLearn(string what)
         {
-            if (bridge?.Last == null || profile == null)
-            {
-                learnLabel.Text = "Connect the radio first.";
-                return;
-            }
-            learning = kind;
+            if (bridge?.Last == null || profile == null) { promptLabel.Text = "Connect the radio first."; return; }
+            if (calStep != 0) EndCalibration();
+            learning = what;
             learnStarted = DateTime.Now;
             learnBase = Copy(bridge.Last);
             learnCandidate = null;
-            switch (kind)
+            switch (what)
             {
-                case Learn.Throttle: learnLabel.Text = "Push the THROTTLE stick fully UP and hold it."; break;
-                case Learn.Yaw: learnLabel.Text = "Move the LEFT stick fully RIGHT and hold it."; break;
-                case Learn.Pitch: learnLabel.Text = "Push the RIGHT stick fully UP (forward) and hold it."; break;
-                case Learn.Roll: learnLabel.Text = "Move the RIGHT stick fully RIGHT and hold it."; break;
-                case Learn.Arm: learnLabel.Text = "Flip your ARM switch to the ON position."; break;
-                case Learn.Acro: learnLabel.Text = "Flip the switch you want for Acro mode."; break;
+                case "stick:" + StickThrottle: promptLabel.Text = "Push the THROTTLE stick fully UP and hold it."; break;
+                case "stick:" + StickYaw: promptLabel.Text = "Move the LEFT stick fully RIGHT and hold it."; break;
+                case "stick:" + StickPitch: promptLabel.Text = "Push the RIGHT stick fully UP (forward) and hold it."; break;
+                case "stick:" + StickRoll: promptLabel.Text = "Move the RIGHT stick fully RIGHT and hold it."; break;
+                case "arm": promptLabel.Text = "Flip your ARM switch to the ON position."; break;
+                case "acro": promptLabel.Text = "Flip the switch you want for Acro mode."; break;
+                default: promptLabel.Text = $"Flip the switch or press the button you want for Xbox {what.Substring(4)}."; break;
             }
         }
 
@@ -372,35 +546,34 @@ namespace BodycamFpvFix
         {
             if ((DateTime.Now - learnStarted).TotalSeconds > 12)
             {
-                learning = Learn.None;
-                learnLabel.Text = "Nothing detected. Press Learn and try again.";
+                learning = null;
+                promptLabel.Text = "Nothing detected. Press Learn and try again.";
                 return;
             }
             if (s == null) return;
 
-            string found = null;
-            if (learning == Learn.Arm || learning == Learn.Acro) found = DetectSwitch(s);
-            else found = DetectStick(s);
-
+            bool stick = learning.StartsWith("stick:");
+            string found = stick ? DetectStick(s) : DetectSwitch(s);
             if (found == null) { learnCandidate = null; return; }
             if (found != learnCandidate) { learnCandidate = found; learnCandidateSince = DateTime.Now; return; }
-            double holdMs = learning == Learn.Arm || learning == Learn.Acro ? 150 : 350;
-            if ((DateTime.Now - learnCandidateSince).TotalMilliseconds < holdMs) return;
+            if ((DateTime.Now - learnCandidateSince).TotalMilliseconds < (stick ? 350 : 150)) return;
 
-            var kind = learning;
-            learning = Learn.None;
-            if (kind == Learn.Arm) profile.ArmSource = found;
-            else if (kind == Learn.Acro) profile.AcroSource = found;
+            string what = learning;
+            learning = null;
+            if (what == "arm") profile.ArmSource = found;
+            else if (what == "acro") profile.AcroSource = found;
+            else if (what.StartsWith("btn:")) ButtonOf(what.Substring(4)).Source = found;
             else
             {
                 // found = "<axis>|+" or "<axis>|-": "+" means the raw value rises towards up/right.
                 var parts = found.Split('|');
-                StickOf(kind).Axis = parts[0];
-                StickOf(kind).Invert = parts[1] == "-";
+                var m = StickOf(what.Substring(6));
+                m.Axis = parts[0];
+                m.Invert = parts[1] == "-";
             }
             settings.Save();
             ShowProfile();
-            learnLabel.Text = "Learned: " + found.Replace("|+", "").Replace("|-", " (inverted)");
+            promptLabel.Text = "Learned: " + found.Replace("|+", "").Replace("|-", " (inverted)");
         }
 
         string DetectStick(InputState s)

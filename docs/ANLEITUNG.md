@@ -17,15 +17,17 @@ Windows führt die Funke jetzt als Gamecontroller. Prüfen kannst du das mit `Wi
 
 ### Der Treiber (nur beim ersten Mal)
 
-Der virtuelle Xbox-Controller braucht den kostenlosen Treiber **ViGEmBus**. Fehlt er, zeigt das Programm **Install driver (one admin prompt)**:
+Der virtuelle Xbox-Controller braucht den kostenlosen Treiber **ViGEmBus**. Fehlt er, lädt das Programm den offiziellen Installer selbst herunter und prüft ihn:
 
-1. Auf den Knopf klicken. Das Programm lädt den offiziellen Installer und prüft ihn.
-2. Die Windows-Admin-Abfrage bestätigen und den Installer durchklicken.
-3. Die Zeile wird grün: *ViGEmBus driver: installed*. Falls nicht, Windows einmal neu starten.
+1. Die Windows-Admin-Abfrage bestätigen.
+2. Den Installer durchklicken.
+3. Die Zeile oben wird grün: *ViGEmBus driver: installed*. Falls nicht, Windows einmal neu starten.
 
-## 3. Sticks prüfen
+Brichst du die Admin-Abfrage ab, bleibt der Knopf **Install driver (one admin prompt)** sichtbar, und du kannst es nochmal versuchen.
 
-![Hauptfenster](screenshot-running.png)
+## 3. Sticks
+
+![Reiter Sticks](screenshot-sticks.png)
 
 Jeden Stick bewegen und auf die Balken schauen:
 
@@ -42,28 +44,54 @@ Bewegt sich ein Balken mit dem falschen Stick oder in die falsche Richtung:
 2. Tun, was der blaue Text sagt (zum Beispiel *Push the RIGHT stick fully UP and hold it* = rechten Stick ganz nach oben und halten), und den Stick kurz halten.
 3. Die Zeile zeigt jetzt die richtige Achse, **invert** ist passend gesetzt.
 
-Der graue Kasten *Raw input from the radio* zeigt alle Achsen und Knöpfe, die die Funke sendet. Er hilft, wenn etwas gar nicht reagiert.
+### Kalibrieren
 
-## 4. Die zwei Schalter festlegen
+Die Kalibrierung macht die Mitte genau und nutzt den ganzen Stickweg, auch wenn die Funke etwas weniger als ihren Bereich sendet.
+
+1. **Calibrate** drücken.
+2. Beide Sticks loslassen, Gas ganz nach unten, **Next** drücken.
+3. Beide Sticks ein paar Mal in jede Ecke und am Rand entlang führen, dann **Finish** drücken.
+
+Neben den Knöpfen steht jetzt *Calibrated: ...*. **Reset calibration** löscht sie wieder. Läuft der Controller schon, danach einmal Stop und Start drücken.
+
+Zeigt ein Stick in der Mitte trotzdem einen großen Wert (zum Beispiel Roll +100 %), sendet die Funke selbst ihren Anschlag. Dann zuerst die Funke kalibrieren (siehe ihre Anleitung) und hier danach noch einmal.
+
+## 4. Arm und Acro
+
+![Reiter Arm & Acro](screenshot-arm-acro.png)
 
 | Funktion | Was sie in Bodycam macht |
 |---|---|
-| **Arm (RB)** | Schaltet die Drohne scharf. Solange der Schalter aus ist, hält das Programm das Gas in der Mitte, damit deine Figur nicht rückwärts läuft. |
+| **Arm (RB)** | Schaltet die Drohne scharf: ein Druck auf RB, wenn der Schalter an geht. Solange er aus ist, hält das Programm das Gas in der Mitte, damit deine Figur nicht rückwärts läuft. |
 | **Acro mode (LB)** | Bodycam schaltet den Acro-Modus mit LB um. Jedes Umlegen dieses Schalters ist ein Druck. |
 
 Für beide: **Learn** drücken, dann den gewünschten Schalter umlegen (bei Arm auf **an**). Die Zeile zeigt danach den gelernten Eingang, zum Beispiel `Button 5` oder `Slider<1023`. **Clear** löscht ihn wieder.
 
-## 5. Start
+## 5. Weitere Knöpfe (optional)
+
+![Reiter Buttons](screenshot-buttons.png)
+
+Der Reiter **Buttons** listet jeden Xbox-Knopf. **Learn** drücken, dann einen Schalter umlegen oder einen Knopf an der Funke drücken. Danach wählen, wie der Xbox-Knopf gedrückt wird:
+
+| Modus | Wofür |
+|---|---|
+| Hold | Der Xbox-Knopf ist gedrückt, solange der Schalter an ist |
+| Tap on every flip | Dinge, die das Spiel mit einem Druck umschaltet; jedes Umlegen ist ein Druck |
+| Tap when switched on | Nur ein Druck, wenn der Schalter an geht |
+
+Der Reiter **Raw input** zeigt alle Achsen und Knöpfe, die die Funke sendet, und welche Xbox-Knöpfe gerade rausgehen. Er hilft, wenn etwas nicht reagiert.
+
+## 6. Start
 
 **Start** drücken. Die Statuszeile meldet *Running: Bodycam sees an Xbox controller.*, der Knopf wird grün.
 
-In den ersten zwei Sekunden die Sticks loslassen: Das Programm misst die Mittelstellung. Steht ein Stick weit daneben, erscheint eine rote Warnung. Dann die Funke kalibrieren und Stop und Start drücken.
+In den ersten zwei Sekunden die Sticks loslassen. Bei nicht kalibrierten Sticks misst das Programm in diesem Moment die Mitte; steht einer weit daneben, erscheint eine rote Warnung.
 
 Das Fenster beim Spielen offen lassen; minimieren geht. Steckst du die Funke ab, wartet das Programm und verbindet sich danach von selbst wieder.
 
 Mit **Start automatically** entfällt der Klick auf Start beim nächsten Mal.
 
-## 6. In Bodycam fliegen
+## 7. In Bodycam fliegen
 
 1. Drohne über das Tablet nehmen.
 2. Den **Acro**-Schalter umlegen. Nur im Acro-Modus wirken die vier Sticks wie bei einem echten Quad. Im normalen Modus von Bodycam fährt der linke Stick vor und zurück, und der rechte bewegt die Kamera.
@@ -79,7 +107,7 @@ Bodycam stellt die Drohnen-Raten sehr hoch ein. Unter **Einstellungen → Drohne
 
 | Problem | Lösung |
 |---|---|
-| Drohne oder Kamera rollt oder dreht von selbst | Die Funke ist nicht kalibriert: Ein Stick meldet in der Mitte seinen Anschlag. Das Programm zeigt dann eine rote Warnung. Funke kalibrieren (siehe ihre Anleitung), danach Stop und Start. |
+| Drohne oder Kamera rollt oder dreht von selbst | Im Reiter Sticks **Calibrate** ausführen. Zeigt ein Stick in der Mitte danach noch einen großen Wert, sendet die Funke selbst ihren Anschlag: Funke kalibrieren, dann hier erneut. |
 | Bodycam zeigt 50 % Gas, obwohl der Stick unten ist | Der Arm-Schalter ist aus, das Gas ist in der Mitte gesperrt. Arm einschalten. |
 | Linker Stick fährt vor/zurück, rechter bewegt die Kamera | Die Drohne ist im normalen Modus von Bodycam. Acro-Schalter umlegen (LB). |
 | Funke steht nicht in der Liste | Funke in den USB-Joystick-Modus schalten und **Refresh** drücken. |

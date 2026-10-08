@@ -10,7 +10,8 @@ namespace BodycamFpvFix
     public sealed class OutputSnapshot
     {
         public double Throttle, Yaw, Pitch, Roll;   // -1..1, stick up/right positive
-        public bool Armed, ThrottleLocked, ArmPressed, AcroPressed;
+        public bool Armed, ThrottleLocked;
+        public HashSet<string> Pressed = new HashSet<string>();
     }
 
     /// <summary>
@@ -61,11 +62,11 @@ namespace BodycamFpvFix
         {
             HidJoystick joy = null;
             VirtualPad pad = null;
-            var pulses = new PulseState();
+            var pulses = new Pulses();
             DateTime padSince = DateTime.MinValue;
             bool nudged = false;
             var centerSamples = new Dictionary<string, List<int>>();
-            var centers = new Dictionary<string, int>();
+            var measured = new Dictionary<string, int>();
 
             try
             {
@@ -108,8 +109,8 @@ namespace BodycamFpvFix
                             padSince = DateTime.Now;
                             nudged = false;
                             centerSamples.Clear();
-                            centers.Clear();
-                            pulses = new PulseState();
+                            measured.Clear();
+                            pulses = new Pulses();
                             Warning = "";
                         }
                         catch (Exception ex)
@@ -129,12 +130,12 @@ namespace BodycamFpvFix
                     var p = Profile;
                     if (pad == null)
                     {
-                        Output = Compute(s, p, null, null, DateTime.Now);
+                        Output = Compute(s, p, measured, null, DateTime.Now);
                         Status = "Radio connected. Press Start to create the virtual Xbox controller.";
                         continue;
                     }
 
-                    // Settle phase: measure stick centers (sticks released), then nudge the pad once.
+                    // Settle phase: measure stick centers of uncalibrated axes (sticks released), then nudge the pad once.
                     double sinceMs = (DateTime.Now - padSince).TotalMilliseconds;
                     if (sinceMs < SettleMs)
                     {
@@ -150,16 +151,16 @@ namespace BodycamFpvFix
                     }
                     if (!nudged)
                     {
-                        centers = MeasureCenters(centerSamples, joy.Axes);
+                        measured = MeasureCenters(centerSamples, joy.Axes, p);
                         // ViGEm only forwards changed reports; without this the game sees a random start state until the first stick move.
-                        pad.Send(1, 0, 0, 0, false, false);
+                        pad.Send(1, 0, 0, 0, null);
                         Thread.Sleep(20);
                         nudged = true;
                     }
 
-                    var o = Compute(s, p, centers, pulses, DateTime.Now);
+                    var o = Compute(s, p, measured, pulses, DateTime.Now);
                     Output = o;
-                    pad.Send(ToShort(o.Yaw), ToShort(o.ThrottleLocked ? 0 : o.Throttle), ToShort(o.Roll), ToShort(-o.Pitch), o.AcroPressed, o.ArmPressed);
+                    pad.Send(ToShort(o.Yaw), ToShort(o.ThrottleLocked ? 0 : o.Throttle), ToShort(o.Roll), ToShort(-o.Pitch), o.Pressed);
                     Status = "Running: Bodycam sees an Xbox controller.";
                 }
             }
@@ -183,78 +184,85 @@ namespace BodycamFpvFix
             return match == null ? null : HidJoystick.Open(match);
         }
 
-        Dictionary<string, int> MeasureCenters(Dictionary<string, List<int>> samples, List<AxisInfo> axes)
+        Dictionary<string, int> MeasureCenters(Dictionary<string, List<int>> samples, List<AxisInfo> axes, DeviceProfile p)
         {
             var centers = new Dictionary<string, int>();
             var warnings = new List<string>();
             foreach (var a in axes)
             {
+                if (p.Calibration.ContainsKey(a.Name)) continue;   // calibrated axes use their stored center
                 if (!samples.TryGetValue(a.Name, out var l) || l.Count == 0) continue;
                 l.Sort();
                 int median = l[l.Count / 2];
                 if (Math.Abs(median - a.Mid) > (a.Max - a.Min) / 10)
                 {
                     warnings.Add($"{a.Name} = {median}");
-                    centers[a.Name] = a.Mid;   // far off: radio needs calibration, do not trust this center
+                    centers[a.Name] = a.Mid;   // far off: do not trust this center
                 }
                 else centers[a.Name] = median;
             }
             if (warnings.Count > 0)
                 Warning = "Stick not centered or radio not calibrated (" + string.Join(", ", warnings) +
-                          "). Calibrate the radio, then press Stop and Start.";
+                          "). Use Calibrate, or calibrate the radio itself, then press Stop and Start.";
             return centers;
         }
 
-        OutputSnapshot Compute(InputState s, DeviceProfile p, Dictionary<string, int> centers, PulseState pulses, DateTime now)
+        OutputSnapshot Compute(InputState s, DeviceProfile p, Dictionary<string, int> measured, Pulses pulses, DateTime now)
         {
             var o = new OutputSnapshot
             {
-                Throttle = ThrottleValue(s, p.Throttle),
-                Yaw = StickValue(s, p.Yaw, centers, p.Deadzone),
-                Pitch = StickValue(s, p.Pitch, centers, p.Deadzone),
-                Roll = StickValue(s, p.Roll, centers, p.Deadzone),
+                Throttle = ThrottleValue(s, p.Throttle, p),
+                Yaw = StickValue(s, p.Yaw, p, measured),
+                Pitch = StickValue(s, p.Pitch, p, measured),
+                Roll = StickValue(s, p.Roll, p, measured),
             };
             bool armSet = !string.IsNullOrWhiteSpace(p.ArmSource);
             o.Armed = !armSet || Source.IsActive(p.ArmSource, s);
             o.ThrottleLocked = armSet && p.LockThrottleWhenDisarmed && !o.Armed;
+            if (pulses == null) return o;
 
-            if (pulses != null)
-            {
-                // Arm: one RB press when the arm switch goes on. Switching off does nothing, so switch and game stay in step after a crash.
-                bool armOn = armSet && Source.IsActive(p.ArmSource, s);
-                if (pulses.Arm == null) pulses.Arm = armOn;
-                else if (armOn != pulses.Arm.Value) { pulses.Arm = armOn; if (armOn) pulses.ArmUntil = now.AddMilliseconds(PulseMs); }
+            // Arm: one RB press when the arm switch goes on. Switching off does nothing, so switch and game stay in step after a crash.
+            if (armSet && pulses.Pressed("arm", Source.IsActive(p.ArmSource, s), ButtonMap.TapWhenOn, now)) o.Pressed.Add("RB");
+            // Acro: Bodycam toggles Acro mode with LB, so every flip of the switch is one press.
+            if (!string.IsNullOrWhiteSpace(p.AcroSource) && pulses.Pressed("acro", Source.IsActive(p.AcroSource, s), ButtonMap.TapOnFlip, now)) o.Pressed.Add("LB");
 
-                // Acro: Bodycam toggles Acro mode with LB, so every flip of the switch is one press.
-                bool acroOn = Source.IsActive(p.AcroSource, s);
-                if (pulses.Acro == null) pulses.Acro = acroOn;
-                else if (acroOn != pulses.Acro.Value) { pulses.Acro = acroOn; pulses.AcroUntil = now.AddMilliseconds(PulseMs); }
-
-                o.ArmPressed = now < pulses.ArmUntil;
-                o.AcroPressed = now < pulses.AcroUntil;
-            }
+            foreach (var b in p.Buttons)
+                if (!string.IsNullOrWhiteSpace(b.Source) && !string.IsNullOrEmpty(b.Target) &&
+                    pulses.Pressed("btn:" + b.Target, Source.IsActive(b.Source, s), b.Mode, now))
+                    o.Pressed.Add(b.Target);
             return o;
         }
 
-        AxisInfo AxisOf(string name) => Axes.FirstOrDefault(a => a.Name == name);
-
-        double ThrottleValue(InputState s, StickMap m)
+        /// <summary>Min, center and max of an axis: from the calibration if there is one, else the HID range and the measured center.</summary>
+        void RangeOf(string axis, DeviceProfile p, Dictionary<string, int> measured, out int min, out int center, out int max)
         {
-            var a = AxisOf(m.Axis);
-            if (a == null || !s.Axes.TryGetValue(a.Name, out int v)) return -1;
-            double t = (double)(v - a.Min) / Math.Max(1, a.Max - a.Min);
+            if (p.Calibration.TryGetValue(axis, out var cal) && cal.Max > cal.Min)
+            {
+                min = cal.Min; center = cal.Center; max = cal.Max;
+                return;
+            }
+            var a = Axes.FirstOrDefault(x => x.Name == axis);
+            min = a?.Min ?? 0; max = a?.Max ?? 1;
+            center = measured != null && measured.TryGetValue(axis, out int c) ? c : (a?.Mid ?? 0);
+        }
+
+        double ThrottleValue(InputState s, StickMap m, DeviceProfile p)
+        {
+            if (string.IsNullOrEmpty(m.Axis) || !s.Axes.TryGetValue(m.Axis, out int v)) return -1;
+            RangeOf(m.Axis, p, null, out int min, out _, out int max);
+            double t = (double)(v - min) / Math.Max(1, max - min);
             if (m.Invert) t = 1 - t;
             return Clamp(t * 2 - 1);
         }
 
-        double StickValue(InputState s, StickMap m, Dictionary<string, int> centers, double deadzone)
+        double StickValue(InputState s, StickMap m, DeviceProfile p, Dictionary<string, int> measured)
         {
-            var a = AxisOf(m.Axis);
-            if (a == null || !s.Axes.TryGetValue(a.Name, out int v)) return 0;
-            int c = centers != null && centers.TryGetValue(a.Name, out int cc) ? cc : a.Mid;
-            double n = v >= c ? (double)(v - c) / Math.Max(1, a.Max - c) : (double)(v - c) / Math.Max(1, c - a.Min);
-            if (Math.Abs(n) < deadzone) n = 0;
-            else n = Math.Sign(n) * (Math.Abs(n) - deadzone) / (1 - deadzone);
+            if (string.IsNullOrEmpty(m.Axis) || !s.Axes.TryGetValue(m.Axis, out int v)) return 0;
+            RangeOf(m.Axis, p, measured, out int min, out int c, out int max);
+            double n = v >= c ? (double)(v - c) / Math.Max(1, max - c) : (double)(v - c) / Math.Max(1, c - min);
+            double dz = p.Deadzone;
+            if (Math.Abs(n) < dz) n = 0;
+            else n = Math.Sign(n) * (Math.Abs(n) - dz) / (1 - dz);
             return Clamp(m.Invert ? -n : n);
         }
 
@@ -263,13 +271,26 @@ namespace BodycamFpvFix
 
         static void SendNeutral(VirtualPad pad)
         {
-            try { pad?.Send(0, 0, 0, 0, false, false); } catch { }
+            try { pad?.Send(0, 0, 0, 0, null); } catch { }
         }
 
-        sealed class PulseState
+        /// <summary>Turns switch states into button presses: hold, tap on every flip, or tap when switched on.</summary>
+        sealed class Pulses
         {
-            public bool? Arm, Acro;
-            public DateTime ArmUntil, AcroUntil;
+            readonly Dictionary<string, bool> last = new Dictionary<string, bool>();
+            readonly Dictionary<string, DateTime> until = new Dictionary<string, DateTime>();
+
+            public bool Pressed(string key, bool active, string mode, DateTime now)
+            {
+                if (mode == ButtonMap.Hold) return active;
+                if (!last.TryGetValue(key, out bool before)) { last[key] = active; return false; }   // no press for the starting position
+                if (active != before)
+                {
+                    last[key] = active;
+                    if (mode == ButtonMap.TapOnFlip || active) until[key] = now.AddMilliseconds(PulseMs);
+                }
+                return until.TryGetValue(key, out var u) && now < u;
+            }
         }
     }
 }

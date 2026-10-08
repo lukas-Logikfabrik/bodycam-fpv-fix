@@ -17,15 +17,17 @@ Windows now lists the radio as a game controller. You can check this with `Win +
 
 ### The driver (only the first time)
 
-The virtual Xbox controller needs the free **ViGEmBus** driver. If it is missing, the program shows **Install driver (one admin prompt)**:
+The virtual Xbox controller needs the free **ViGEmBus** driver. If it is missing, the program fetches the official installer by itself and checks it:
 
-1. Click the button. The program downloads the official installer and checks it.
-2. Confirm the Windows admin prompt and click through the installer.
-3. The line turns green: *ViGEmBus driver: installed*. If not, restart Windows once.
+1. Confirm the Windows admin prompt.
+2. Click through the installer.
+3. The line at the top turns green: *ViGEmBus driver: installed*. If not, restart Windows once.
 
-## 3. Check the sticks
+If you cancel the admin prompt, the button **Install driver (one admin prompt)** stays visible so you can try again.
 
-![Main window](screenshot-running.png)
+## 3. Sticks
+
+![Sticks tab](screenshot-sticks.png)
 
 Move each stick and watch the bars:
 
@@ -42,28 +44,54 @@ If a bar moves with the wrong stick or the wrong way:
 2. Do what the blue text says (for example *Push the RIGHT stick fully UP and hold it*) and hold the stick for a moment.
 3. The row now shows the right axis, and **invert** is set as needed.
 
-The grey box *Raw input from the radio* shows every axis and button the radio sends. It helps when something does not react at all.
+### Calibrate
 
-## 4. Set the two switches
+Calibration makes the centers exact and uses the full stick travel, even if the radio sends a little less than its range.
+
+1. Click **Calibrate**.
+2. Let go of both sticks, throttle all the way down, and click **Next**.
+3. Move both sticks to every corner and around the edge a few times, then click **Finish**.
+
+The line next to the buttons now says *Calibrated: ...*. **Reset calibration** removes it again. If the controller is already running, click Stop and Start afterwards.
+
+If a stick shows a large value even when it is centered (for example roll at +100 %), the radio itself sends its end position. Then calibrate the radio first (see its manual) and calibrate here again.
+
+## 4. Arm and Acro
+
+![Arm & Acro tab](screenshot-arm-acro.png)
 
 | Function | What it does in Bodycam |
 |---|---|
-| **Arm (RB)** | Arms the drone. While the switch is off, the throttle is held at center so your character does not walk backwards. |
+| **Arm (RB)** | Arms the drone: one RB press when the switch goes on. While the switch is off, the throttle is held at center so your character does not walk backwards. |
 | **Acro mode (LB)** | Bodycam toggles Acro mode with LB. Each flip of this switch is one press. |
 
 For each one: click **Learn**, then flip the switch you want (for Arm: flip it to the **on** position). The line shows the learned input, for example `Button 5` or `Slider<1023`. **Clear** removes it again.
 
-## 5. Start
+## 5. More buttons (optional)
+
+![Buttons tab](screenshot-buttons.png)
+
+The tab **Buttons** lists every Xbox button. Click **Learn**, then flip a switch or press a button on the radio. Choose how it should press the Xbox button:
+
+| Mode | Use it for |
+|---|---|
+| Hold | The Xbox button is pressed while the switch is on |
+| Tap on every flip | Things the game toggles with one press, each flip is one press |
+| Tap when switched on | One press only when the switch goes on |
+
+The tab **Raw input** shows every axis and button the radio sends and which Xbox buttons go out right now. It helps when something does not react.
+
+## 6. Start
 
 Click **Start**. The status line says *Running: Bodycam sees an Xbox controller.* and the button turns green.
 
-Keep your sticks still for the first two seconds: the program measures the stick centers. If a stick is far off center, a red warning appears. Then calibrate the radio and click Stop and Start.
+Keep your sticks still for the first two seconds. Uncalibrated sticks get their center measured in that moment; if one is far off, a red warning appears.
 
 Leave the window open while you play. You can minimize it. If you unplug the radio, the program waits and reconnects by itself.
 
 Tick **Start automatically** to skip the Start click next time.
 
-## 6. Fly in Bodycam
+## 7. Fly in Bodycam
 
 1. Take out the drone from the tablet.
 2. Flip the **Acro** switch. Only Acro mode uses the four sticks like a real quad. In Bodycam's normal mode the left stick moves forward and back and the right stick moves the camera.
