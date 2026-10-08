@@ -1,0 +1,54 @@
+# Builds BodycamFpvFix.exe from source on every push.
+# A tag like v1.0.0 also publishes a release with the exe, its SHA-256 and a GitHub build attestation,
+# so anyone can check that the download was built from this repository:
+#   gh attestation verify BodycamFpvFix.exe --repo lukas-Logikfabrik/bodycam-fpv-fix
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write        # create the release
+      id-token: write        # sign the build attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build
+        shell: powershell
+        run: |
+          $version = if ('${{ github.ref_type }}' -eq 'tag') { '${{ github.ref_name }}' } else { '0.0.0-dev.${{ github.run_number }}' }
+          ./build.ps1 -Version $version
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: BodycamFpvFix
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/BodycamFpvFix.exe
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $hash = (Get-Content dist/BodycamFpvFix.exe.sha256).Split(' ')[0]
+          $notes = (Get-Content .github/release-notes.md -Raw).Replace('{{SHA256}}', $hash).Replace('{{TAG}}', '${{ github.ref_name }}')
+          [IO.File]::WriteAllText("$PWD\dist\notes.md", $notes, (New-Object Text.UTF8Encoding $false))
+          gh release create '${{ github.ref_name }}' dist/BodycamFpvFix.exe dist/BodycamFpvFix.exe.sha256 --title 'Bodycam FPV Fix ${{ github.ref_name }}' --notes-file dist/notes.md --verify-tag
