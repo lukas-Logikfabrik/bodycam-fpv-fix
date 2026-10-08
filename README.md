@@ -1,6 +1,6 @@
 # Bodycam FPV Fix
 
-Fly the FPV drone in **Bodycam** with a real RC radio instead of a gamepad.
+**Use your FPV controller (RC transmitter) to fly the drone in Bodycam.** BETAFPV LiteRadio, RadioMaster, Jumper, TBS, DJI and other EdgeTX or OpenTX radios: plug the radio in by USB, start one exe and fly with real sticks instead of a gamepad.
 
 Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over USB and turns it into a virtual Xbox controller with the stick layout that Bodycam's Acro mode expects: throttle and yaw on the left stick, pitch and roll on the right. Two switches on your radio arm the drone (RB) and toggle Acro mode (LB). Any other Xbox button can go on any switch or button of the radio, and a calibration wizard corrects off-center sticks and short stick travel.
 
@@ -10,7 +10,7 @@ Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over
 |---|---|---|
 | ![Arm and Acro switches](docs/screenshot-arm-acro.png) | ![Free button mapping](docs/screenshot-buttons.png) | ![Raw input from the radio](docs/screenshot-raw.png) |
 
-**Guide:** [English](docs/GUIDE.md) · [Deutsch](docs/ANLEITUNG.md)
+**Guide:** [English](docs/GUIDE.md) · [Deutsch: Bodycam-Drohne mit FPV-Funke fliegen](docs/ANLEITUNG.md)
 
 ## Download
 
@@ -52,7 +52,7 @@ Any radio that shows up on the PC as a USB joystick, for example:
 | TBS Tango 2 / Mambo | Should work, use **Learn** |
 | DJI FPV Remote Controller 2/3 in joystick mode | Should work, use **Learn** |
 
-Only the BETAFPV LiteRadio has been tested so far. If you try another radio, please open an issue and say whether it worked.
+Only the BETAFPV LiteRadio has been tested so far. If you try another radio, please fill in a short [radio report](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/issues/new?template=radio-report.yml), whether it worked or not. Every report goes into this table.
 
 ## Bodycam settings that help
 
@@ -75,6 +75,26 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 | Left stick moves the drone forward/back, right stick moves the camera | The drone is in Bodycam's normal mode. Flip the Acro switch (LB). |
 | Radio is not in the list | Switch the radio to USB joystick mode. The program finds it within two seconds; **Refresh** looks right away. |
 | Nothing happens in the game | The status line must say "Running". Close other controller tools such as x360ce or DS4Windows so only one virtual controller exists. |
+
+## FAQ
+
+**Can I use my FPV controller or RC transmitter in Bodycam?**
+Not on its own: Bodycam only reads Xbox controllers. With Bodycam FPV Fix you can, as long as the radio shows up on the PC as a USB joystick.
+
+**Does it work with RadioMaster (TX16S, Boxer, Pocket, Zorro), Jumper, TBS or DJI radios?**
+It should, see [Which radios work?](#which-radios-work). So far only the BETAFPV LiteRadio has been tested.
+
+**Do I need a real drone, Betaflight or a receiver?**
+No. You only need the radio and a USB data cable. Nothing gets bound or flashed.
+
+**Does it change the game?**
+No. It does not touch Bodycam's files or memory. Windows simply sees one more Xbox controller, created through the same ViGEmBus driver that tools like DS4Windows use.
+
+**Why does my character walk backwards?**
+The Arm switch is on, so the throttle stick goes to the game. Switch Arm off while you are on foot (see the warning under [Quick start](#quick-start)).
+
+**Mac, Linux or Steam Deck?**
+No, only Windows 10 and 11, because the virtual controller needs the ViGEmBus driver.
 
 ## How it works
 

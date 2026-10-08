@@ -1,0 +1,51 @@
+name: Radio report
+description: Tell us whether your radio works with Bodycam FPV Fix, so others know before they try.
+title: "Radio report: "
+labels: ["radio report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing! Every report goes into the radio table in the README, whether it worked or not.
+  - type: input
+    id: radio
+    attributes:
+      label: Radio
+      description: Make and model.
+      placeholder: RadioMaster Pocket
+    validations:
+      required: true
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware and USB mode
+      placeholder: EdgeTX 2.10, USB Joystick (HID)
+  - type: input
+    id: usb-id
+    attributes:
+      label: Name and USB ID at the top of the window
+      placeholder: BETAFPV Joystick (0483:572B)
+  - type: dropdown
+    id: result
+    attributes:
+      label: Does it work in Bodycam?
+      options:
+        - Yes, out of the box
+        - Yes, after Learn or Calibrate
+        - Partly (please describe below)
+        - "No"
+    validations:
+      required: true
+  - type: textarea
+    id: mapping
+    attributes:
+      label: Your mapping
+      description: Which axes and switches did you end up with? (tabs Sticks and Arm & Acro)
+      placeholder: |
+        Throttle Z, Yaw Rx, Pitch Y (invert), Roll X
+        Arm: Button 5 (SA), Acro: Slider<1023
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Problems, tips, or a screenshot of the Raw input tab.
