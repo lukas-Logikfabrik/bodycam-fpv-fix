@@ -67,6 +67,9 @@ Zeigt ein Stick in der Mitte trotzdem einen großen Wert (zum Beispiel Roll +100
 
 Für beide: **Learn** drücken, dann den gewünschten Schalter umlegen (bei Arm auf **an**). Die Zeile zeigt danach den gelernten Eingang, zum Beispiel `Button 5` oder `Slider<1023`. **Clear** löscht ihn wieder.
 
+> [!WARNING]
+> **Arm muss aus sein, solange du zu Fuß bist.** Ist Arm an, geht der Gas-Stick ans Spiel, und Bodycam liest ihn auch zu Fuß: Mit Gas unten läuft deine Figur rückwärts, und zwar so lange, bis du Arm ausschaltest. Läuft der Controller und Arm ist an, zeigt das Programm unten eine rote Warnung.
+
 ## 5. Weitere Knöpfe (optional)
 
 ![Reiter Buttons](screenshot-buttons.png)
@@ -97,7 +100,7 @@ Mit **Start automatically** entfällt der Klick auf Start beim nächsten Mal.
 2. Den **Acro**-Schalter umlegen. Nur im Acro-Modus wirken die vier Sticks wie bei einem echten Quad. Im normalen Modus von Bodycam fährt der linke Stick vor und zurück, und der rechte bewegt die Kamera.
 3. Gas ganz nach unten.
 4. **Arm** einschalten und losfliegen. Arm während des Flugs an lassen.
-5. Nach dem Flug (oder Absturz) Arm wieder aus. Für die nächste Drohne bei Schritt 2 beginnen.
+5. Nach dem Flug (oder Absturz) Arm wieder **aus**, bevor du zu Fuß weitermachst, sonst läuft deine Figur rückwärts. Für die nächste Drohne bei Schritt 2 beginnen.
 
 ### Raten
 
@@ -107,8 +110,9 @@ Bodycam stellt die Drohnen-Raten sehr hoch ein. Unter **Einstellungen → Drohne
 
 | Problem | Lösung |
 |---|---|
+| Figur läuft von selbst rückwärts | Der Arm-Schalter ist noch an, deshalb geht der Gas-Stick ans Spiel. Arm ausschalten, solange du zu Fuß bist. |
 | Drohne oder Kamera rollt oder dreht von selbst | Im Reiter Sticks **Calibrate** ausführen. Zeigt ein Stick in der Mitte danach noch einen großen Wert, sendet die Funke selbst ihren Anschlag: Funke kalibrieren, dann hier erneut. |
 | Bodycam zeigt 50 % Gas, obwohl der Stick unten ist | Der Arm-Schalter ist aus, das Gas ist in der Mitte gesperrt. Arm einschalten. |
 | Linker Stick fährt vor/zurück, rechter bewegt die Kamera | Die Drohne ist im normalen Modus von Bodycam. Acro-Schalter umlegen (LB). |
-| Funke steht nicht in der Liste | Funke in den USB-Joystick-Modus schalten und **Refresh** drücken. |
+| Funke steht nicht in der Liste | Funke in den USB-Joystick-Modus schalten. Das Programm findet sie innerhalb von zwei Sekunden; **Refresh** sucht sofort. |
 | Im Spiel passiert nichts | Die Statuszeile muss „Running“ zeigen. Andere Controller-Programme wie x360ce oder DS4Windows schließen, damit nur ein virtueller Controller existiert. |

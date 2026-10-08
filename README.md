@@ -27,6 +27,9 @@ Get **`BodycamFpvFix.exe`** from the [latest release](https://github.com/lukas-L
 
 In Bodycam: take out the drone, flip the Acro switch, put the throttle down and switch Arm on. Keep Arm on while you fly and switch it off when you are back on foot.
 
+> [!WARNING]
+> **Keep the Arm switch OFF whenever you are on foot.** While Arm is on, the throttle stick goes to the game, and Bodycam reads it on foot as well: with the throttle down, your character walks backwards and keeps walking. Switch Arm on only after you have taken out the drone, and off again as soon as you are back on foot, also after a crash. While Arm is on, the program shows a red warning.
+
 ## Is this safe to run?
 
 - **All source code is in this repository.** The exe in the releases is built by [GitHub Actions](.github/workflows/build.yml) from exactly this code, not on anyone's PC.
@@ -66,10 +69,11 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 
 | Problem | Fix |
 |---|---|
+| Your character walks backwards by itself | The Arm switch is still on, so the throttle stick goes to the game. Switch Arm off while you are on foot. |
 | The drone or camera keeps rolling or turning by itself | Click **Calibrate** in the Sticks tab. If a stick still shows a large value while centered, the radio itself sends its end position: calibrate the radio (see its manual), then calibrate again here. |
 | Bodycam shows 50 % throttle with the stick down | The arm switch is off, so the throttle is locked at center. Switch Arm on. |
 | Left stick moves the drone forward/back, right stick moves the camera | The drone is in Bodycam's normal mode. Flip the Acro switch (LB). |
-| Radio is not in the list | Switch the radio to USB joystick mode and click **Refresh**. |
+| Radio is not in the list | Switch the radio to USB joystick mode. The program finds it within two seconds; **Refresh** looks right away. |
 | Nothing happens in the game | The status line must say "Running". Close other controller tools such as x360ce or DS4Windows so only one virtual controller exists. |
 
 ## How it works
@@ -79,7 +83,7 @@ The program reads the radio's HID reports directly (all axes and buttons), maps 
 - Left stick Y over its full travel is throttle: down = 0 %, center = 50 %, up = 100 %.
 - Right stick Y negative is pitch forward.
 - RB arms the drone, LB toggles Acro mode. The arm switch sends RB only when it is switched on, so radio and game stay in step after a crash.
-- While the arm switch is off, the left stick is held at center so your character does not walk backwards on foot.
+- While the arm switch is off, the left stick is held at center so your character does not walk backwards on foot. While it is on, nothing holds it back, hence the warning above.
 - Extra buttons have three modes: **Hold** (pressed while the switch is on), **Tap on every flip** (for things the game toggles) and **Tap when switched on**.
 - Calibration stores the center and both end positions of each stick. Without it, the program uses the range the radio reports and measures the centers when you press Start.
 
