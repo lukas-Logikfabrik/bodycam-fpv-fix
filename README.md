@@ -1,5 +1,7 @@
 # Bodycam FPV Fix
 
+<img src="docs/bodycam-with-radio.jpg" align="right" width="280" alt="BETAFPV LiteRadio in front of Bodycam, flying the FPV drone">
+
 **Use your FPV controller (RC transmitter) to fly the drone in Bodycam.** BETAFPV LiteRadio, RadioMaster, Jumper, TBS, DJI and other EdgeTX or OpenTX radios: plug the radio in by USB, start one exe and fly with real sticks instead of a gamepad.
 
 Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over USB and turns it into a virtual Xbox controller with the stick layout that Bodycam's Acro mode expects: throttle and yaw on the left stick, pitch and roll on the right. Two switches on your radio arm the drone (RB) and toggle Acro mode (LB). Any other Xbox button can go on any switch or button of the radio, and a calibration wizard corrects off-center sticks and short stick travel.
@@ -14,7 +16,9 @@ Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over
 
 ## Download
 
-Get **`BodycamFpvFix.exe`** from the [latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest). It is a single file, needs no installation and runs on Windows 10 and 11.
+**[Download BodycamFpvFix.exe](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest/download/BodycamFpvFix.exe)** (latest version) · [Release page with checksum](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest)
+
+It is a single file, needs no installation and runs on Windows 10 and 11.
 
 ## Quick start
 
