@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Reflection;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -11,19 +10,7 @@ namespace BodycamFpvFix
         [STAThread]
         static void Main()
         {
-            // The ViGEm client library is embedded, so the program is a single exe.
-            AppDomain.CurrentDomain.AssemblyResolve += (s, e) =>
-            {
-                if (!e.Name.StartsWith("Nefarius.ViGEm.Client,", StringComparison.OrdinalIgnoreCase)) return null;
-                using (var res = Assembly.GetExecutingAssembly().GetManifestResourceStream("Nefarius.ViGEm.Client.dll"))
-                {
-                    if (res == null) return null;
-                    var bytes = new byte[res.Length];
-                    res.Read(bytes, 0, bytes.Length);
-                    return Assembly.Load(bytes);
-                }
-            };
-
+            // The ViGEm client library is merged into this exe at build time (ILRepack, see build.ps1).
             using (var single = new Mutex(true, "BodycamFpvFix-single-instance", out bool first))
             {
                 if (!first)

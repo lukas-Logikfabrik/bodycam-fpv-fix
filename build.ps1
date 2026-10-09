@@ -27,7 +27,23 @@ try {
     [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $lib, $true)
 } finally { $zip.Dispose() }
 
-# 2. Compiler
+# 2. ILRepack (Apache-2.0), a build tool that merges the ViGEm library into the exe; pinned to one version and checksum
+$repackVersion = '2.0.48'
+$repackSha256 = '799017B829A6ED69FAC0D4FC0A874A4A6A9951F46D73A3CCE20BA016796B949F'
+$repackPkg = Join-Path $build "ILRepack.$repackVersion.nupkg"
+if (-not (Test-Path $repackPkg)) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest "https://www.nuget.org/api/v2/package/ILRepack/$repackVersion" -OutFile $repackPkg -UseBasicParsing
+}
+if ((Get-FileHash $repackPkg -Algorithm SHA256).Hash -ne $repackSha256) { Remove-Item $repackPkg; throw "Checksum mismatch for $repackPkg" }
+$repack = Join-Path $build 'ILRepack.exe'
+$zip = [IO.Compression.ZipFile]::OpenRead($repackPkg)
+try {
+    $entry = $zip.Entries | Where-Object FullName -eq 'tools/ILRepack.exe'
+    [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $repack, $true)
+} finally { $zip.Dispose() }
+
+# 3. Compiler
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
 $csc = $null
 if (Test-Path $vswhere) {
@@ -36,7 +52,7 @@ if (Test-Path $vswhere) {
 if (-not $csc) { throw 'Roslyn csc.exe not found. Install Visual Studio or the Visual Studio Build Tools.' }
 $fw = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
 
-# 3. Version info
+# 4. Version info
 $numeric = if ($Version -match '^v?(\d+)\.(\d+)\.(\d+)') { "$($Matches[1]).$($Matches[2]).$($Matches[3])" } else { '0.0.0' }
 $info = Join-Path $build 'AssemblyInfo.cs'
 @"
@@ -50,17 +66,22 @@ using System.Reflection;
 [assembly: AssemblyInformationalVersion("$Version")]
 "@ | Set-Content $info -Encoding UTF8
 
-# 4. Compile
-$out = Join-Path $dist 'BodycamFpvFix.exe'
+# 5. Compile
+$exe = Join-Path $build 'BodycamFpvFix.exe'
 $sources = Get-ChildItem (Join-Path $root 'src') -Filter *.cs | ForEach-Object FullName
 $refs = 'mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Drawing.dll', 'System.Windows.Forms.dll', 'System.Runtime.Serialization.dll', 'System.Xml.dll', 'netstandard.dll' |
     ForEach-Object { "/reference:$(Join-Path $fw $_)" }
 & $csc /nologo /noconfig /nostdlib+ /target:winexe /platform:anycpu /optimize+ /deterministic+ /debug- /langversion:7.3 `
-    "/pathmap:$root=." "/out:$out" "/win32manifest:$(Join-Path $root 'app.manifest')" `
-    $refs "/reference:$lib" "/resource:$lib,Nefarius.ViGEm.Client.dll" $sources $info
+    "/pathmap:$root=." "/out:$exe" "/win32manifest:$(Join-Path $root 'app.manifest')" `
+    $refs "/reference:$lib" $sources $info
 if ($LASTEXITCODE -ne 0) { throw "Compiler failed with exit code $LASTEXITCODE" }
 
-# 5. Checksum next to the exe
+# 6. Merge the ViGEm library into the exe, so the program stays a single file without loading code at runtime
+$out = Join-Path $dist 'BodycamFpvFix.exe'
+& $repack /ndebug "/lib:$fw" "/targetplatform:v4,$fw" "/out:$out" $exe $lib
+if ($LASTEXITCODE -ne 0) { throw "ILRepack failed with exit code $LASTEXITCODE" }
+
+# 7. Checksum next to the exe
 $hash = (Get-FileHash $out -Algorithm SHA256).Hash
 "$hash  BodycamFpvFix.exe" | Set-Content (Join-Path $dist 'BodycamFpvFix.exe.sha256') -Encoding Ascii
 Write-Host "Built $out"
