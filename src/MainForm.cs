@@ -75,7 +75,7 @@ namespace BodycamFpvFix
 
         public MainForm()
         {
-            Text = "Bodycam FPV Fix";
+            Text = "Bodycam FPV Fix " + DisplayVersion();
             Font = new Font("Segoe UI", 9f);
             AutoScaleMode = AutoScaleMode.Dpi;
             AutoScaleDimensions = new SizeF(96f, 96f);
@@ -105,7 +105,7 @@ namespace BodycamFpvFix
                 bool driverOk = await CheckDriver();
                 if (!driverOk && !driverInstallTried)
                 {
-                    // First start without the driver: fetch and start it right away; Windows asks for admin rights once.
+                    // First start without the driver: start the bundled installer right away; Windows asks for admin rights once.
                     driverInstallTried = true;
                     driverOk = await InstallDriver();
                 }
@@ -352,6 +352,15 @@ namespace BodycamFpvFix
             ShowProfile();
         }
 
+        /// <summary>Version for the window title (from the build tag, e.g. "v1.1.0"), so screenshots show which version a user runs.</summary>
+        static string DisplayVersion()
+        {
+            var info = (System.Reflection.AssemblyInformationalVersionAttribute)Attribute.GetCustomAttribute(
+                typeof(MainForm).Assembly, typeof(System.Reflection.AssemblyInformationalVersionAttribute));
+            string v = info?.InformationalVersion ?? "";
+            return v.Length == 0 || v.StartsWith("0.0.0") ? "(dev build)" : (v.StartsWith("v") ? v : "v" + v);
+        }
+
         async Task<bool> CheckDriver()
         {
             bool ok = await Task.Run(() => VirtualPad.DriverInstalled());
@@ -364,10 +373,26 @@ namespace BodycamFpvFix
 
         async Task<bool> InstallDriver()
         {
+            string installer = DriverSetup.FindInstaller();
+            if (installer == null)
+            {
+                // No download here on purpose: the installer ships in the zip, or the user fetches it from the official page.
+                string text = DriverSetup.StartedFromZip()
+                    ? "It looks like Bodycam FPV Fix was started directly from inside the zip file.\n\n"
+                      + "Please close it, right-click the zip, choose \"Extract All...\", and start BodycamFpvFix.exe from the extracted folder. "
+                      + "The driver installer in the folder \"driver\" is then found automatically."
+                    : "The ViGEmBus driver is needed for the virtual Xbox controller, and its installer was not found next to the program "
+                      + "(folder \"driver\").\n\nIt is included in the zip download of Bodycam FPV Fix. You can also install "
+                      + DriverSetup.InstallerName + " yourself from the official ViGEmBus release page and then restart this program.";
+                text += "\n\nOpen the official ViGEmBus release page now?";
+                if (MessageBox.Show(this, text, "Bodycam FPV Fix", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                    DriverSetup.OpenReleasePage();
+                return await CheckDriver();
+            }
             driverButton.Enabled = false;
-            driverLabel.Text = "Downloading the ViGEmBus driver installer, Windows will ask for admin rights ...";
+            driverLabel.Text = "Starting the ViGEmBus driver installer, Windows will ask for admin rights ...";
             driverLabel.ForeColor = SystemColors.ControlText;
-            string error = await Task.Run(() => DriverSetup.Install());
+            string error = await Task.Run(() => DriverSetup.Install(installer));
             driverButton.Enabled = true;
             bool ok = await CheckDriver();
             if (error != null) MessageBox.Show(this, error, "Bodycam FPV Fix", MessageBoxButtons.OK, MessageBoxIcon.Warning);

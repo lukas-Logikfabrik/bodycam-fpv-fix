@@ -16,14 +16,14 @@ Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over
 
 ## Download
 
-**[Download BodycamFpvFix.exe](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest/download/BodycamFpvFix.exe)** (latest version) · [Release page with checksum](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest)
+**[Download the latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest)**: take `BodycamFpvFix-v….zip`. It contains the program and the official ViGEmBus driver installer, needs no installation and runs on Windows 10 and 11. Extract the whole zip first (right-click → **Extract All…**), then start `BodycamFpvFix.exe` from the extracted folder.
 
-It is a single file, needs no installation and runs on Windows 10 and 11.
+Already have the ViGEmBus driver (for example from DS4Windows)? Then the single [BodycamFpvFix.exe](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest/download/BodycamFpvFix.exe) is enough.
 
 ## Quick start
 
 1. Connect the radio by USB. If the radio asks for a USB mode, choose **USB Joystick (HID)**.
-2. Start `BodycamFpvFix.exe`. On the first start it fetches the ViGEmBus driver by itself; confirm the Windows admin prompt once and click through the installer.
+2. Extract the zip and start `BodycamFpvFix.exe`. On the first start it runs the included ViGEmBus driver installer; confirm the Windows admin prompt once and click through the installer.
 3. Tab **Sticks**: move the sticks, the bars should follow. If an axis is wrong or reversed, click **Learn** next to it and follow the blue prompt. Click **Calibrate** once and follow the two steps.
 4. Tab **Arm & Acro**: click **Learn** next to Arm and flip your arm switch on. Do the same for Acro mode. (Preset for the BETAFPV LiteRadio: SA and the rightmost switch.)
 5. Optional, tab **Buttons**: put more Xbox buttons on switches, for example to leave the drone.
@@ -41,10 +41,10 @@ In Bodycam: take out the drone, flip the Acro switch, put the throttle down and 
   ```
   gh attestation verify BodycamFpvFix.exe --repo lukas-Logikfabrik/bodycam-fpv-fix
   ```
-- **The program runs with normal user rights.** Admin rights are only needed once, to install the ViGEmBus driver. When the driver is missing, the program downloads the official, signed installer from the [ViGEmBus release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0), checks its SHA-256 and only then starts it.
-- **It reads your radio and nothing else.** No network access except that one driver download. It writes only its settings to `%APPDATA%\BodycamFpvFix` (and the driver installer to the temp folder, deleted afterwards).
+- **The program runs with normal user rights.** Admin rights are only needed once, to install the ViGEmBus driver. When the driver is missing, the program starts the official, signed installer from the zip's `driver` folder (unchanged from the [ViGEmBus release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0)) after checking its SHA-256.
+- **It reads your radio and nothing else.** No network access at all (since v1.1.0). It writes only its settings to `%APPDATA%\BodycamFpvFix`.
 - **The exe is not code-signed.** Chrome may say the file is not commonly downloaded (choose **Keep**), and Windows SmartScreen may warn on first start (**More info → Run anyway**). Both warnings are about new, unsigned files, not about anything found in it.
-- **VirusTotal:** [8 of 71 engines](https://www.virustotal.com/gui/file/1e7f1af52e2eb2f258992c1a750869e5316e1a7d494be43b8c04e317c948a4b1) flag v1.0.1. All eight give generic machine-learning or reputation verdicts (for example "Unsafe", "malicious_confidence_90%", or McAfee's "Ti!" label for files it has not seen before), and none names a known malware family. Microsoft Defender, Kaspersky, ESET, Bitdefender, Avast, Malwarebytes, Sophos, Symantec and Trend Micro report it clean. What the heuristics react to is all visible in the source: the exe is new and unsigned, it downloads and starts the ViGEmBus installer when the driver is missing, and the ViGEm client library unpacks its native `vigemclient.dll` at runtime.
+- **VirusTotal:** [8 of 71 engines](https://www.virustotal.com/gui/file/1e7f1af52e2eb2f258992c1a750869e5316e1a7d494be43b8c04e317c948a4b1) flag v1.0.1. All eight give generic machine-learning or reputation verdicts (for example "Unsafe", "malicious_confidence_90%", or McAfee's "Ti!" label for files it has not seen before), and none names a known malware family. Microsoft Defender, Kaspersky, ESET, Bitdefender, Avast, Malwarebytes, Sophos, Symantec and Trend Micro report it clean. What the heuristics react to is all visible in the source: the exe is new and unsigned, v1.0.1 downloaded and started the ViGEmBus installer when the driver was missing (v1.1.0 no longer downloads anything), and the ViGEm client library unpacks its native `vigemclient.dll` at runtime.
 
 ## Which radios work?
 
@@ -78,6 +78,7 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 | The drone or camera keeps rolling or turning by itself | Click **Calibrate** in the Sticks tab. If a stick still shows a large value while centered, the radio itself sends its end position: calibrate the radio (see its manual), then calibrate again here. |
 | Bodycam shows 50 % throttle with the stick down | The arm switch is off, so the throttle is locked at center. Switch Arm on. |
 | Left stick moves the drone forward/back, right stick moves the camera | The drone is in Bodycam's normal mode. Flip the Acro switch (LB). |
+| The program says the driver installer was not found | You started the exe from inside the zip, or only downloaded the single exe. Extract the whole zip and start the exe from there, or install ViGEmBus 1.22.0 from its [release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0). |
 | Radio is not in the list | Switch the radio to USB joystick mode. The program finds it within two seconds; **Refresh** looks right away. |
 | Nothing happens in the game | The status line must say "Running". Close other controller tools such as x360ce or DS4Windows so only one virtual controller exists. |
 
@@ -122,7 +123,7 @@ Requirements: Windows with .NET Framework 4.8 and Visual Studio 2022 or the Visu
 powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.0.0
 ```
 
-The exe and its checksum land in `dist\`. The build downloads `Nefarius.ViGEm.Client` 1.21.256 and the build tool `ILRepack` 2.0.48 from NuGet, checks both SHA-256 values and merges the ViGEm library into the exe, so it stays a single file.
+The exe, the release zip and their checksums land in `dist\`. The build downloads `Nefarius.ViGEm.Client` 1.21.256 and the build tool `ILRepack` 2.0.48 from NuGet and the ViGEmBus 1.22.0 installer from its GitHub release, checks all SHA-256 values, merges the ViGEm library into the exe and packs the zip.
 
 ## License
 
