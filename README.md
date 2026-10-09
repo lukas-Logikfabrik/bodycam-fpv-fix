@@ -43,7 +43,8 @@ In Bodycam: take out the drone, flip the Acro switch, put the throttle down and 
   ```
 - **The program runs with normal user rights.** Admin rights are only needed once, to install the ViGEmBus driver. When the driver is missing, the program downloads the official, signed installer from the [ViGEmBus release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0), checks its SHA-256 and only then starts it.
 - **It reads your radio and nothing else.** No network access except that one driver download. It writes only its settings to `%APPDATA%\BodycamFpvFix` (and the driver installer to the temp folder, deleted afterwards).
-- The exe is not code-signed, so Windows SmartScreen may warn on first start. Click **More info → Run anyway**.
+- **The exe is not code-signed.** Chrome may say the file is not commonly downloaded (choose **Keep**), and Windows SmartScreen may warn on first start (**More info → Run anyway**). Both warnings are about new, unsigned files, not about anything found in it.
+- **VirusTotal:** [8 of 71 engines](https://www.virustotal.com/gui/file/1e7f1af52e2eb2f258992c1a750869e5316e1a7d494be43b8c04e317c948a4b1) flag v1.0.1. All eight give generic machine-learning or reputation verdicts (for example "Unsafe", "malicious_confidence_90%", or McAfee's "Ti!" label for files it has not seen before), and none names a known malware family. Microsoft Defender, Kaspersky, ESET, Bitdefender, Avast, Malwarebytes, Sophos, Symantec and Trend Micro report it clean. What the heuristics react to is all visible in the source: the exe is new and unsigned, it downloads and starts the ViGEmBus installer when the driver is missing, and the ViGEm client library unpacks its native `vigemclient.dll` at runtime.
 
 ## Which radios work?
 

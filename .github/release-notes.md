@@ -10,4 +10,4 @@ Use a USB RC radio as an Xbox controller for the FPV drone in Bodycam.
 - SHA-256: `{{SHA256}}`
 - Build attestation: `gh attestation verify BodycamFpvFix.exe --repo lukas-Logikfabrik/bodycam-fpv-fix`
 
-The exe is not code-signed, so Windows SmartScreen may warn on first start (More info → Run anyway).
+The exe is not code-signed. Chrome may say the file is not commonly downloaded (choose **Keep**), and Windows SmartScreen may warn on first start (**More info → Run anyway**).
