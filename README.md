@@ -121,7 +121,7 @@ Requirements: Windows with .NET Framework 4.8 and Visual Studio 2022 or the Visu
 powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.0.0
 ```
 
-The exe and its checksum land in `dist\`. The build downloads `Nefarius.ViGEm.Client` 1.21.256 from NuGet and checks its SHA-256.
+The exe and its checksum land in `dist\`. The build downloads `Nefarius.ViGEm.Client` 1.21.256 and the build tool `ILRepack` 2.0.48 from NuGet, checks both SHA-256 values and merges the ViGEm library into the exe, so it stays a single file.
 
 ## License
 
