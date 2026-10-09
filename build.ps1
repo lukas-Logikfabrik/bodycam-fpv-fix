@@ -84,5 +84,34 @@ if ($LASTEXITCODE -ne 0) { throw "ILRepack failed with exit code $LASTEXITCODE" 
 # 7. Checksum next to the exe
 $hash = (Get-FileHash $out -Algorithm SHA256).Hash
 "$hash  BodycamFpvFix.exe" | Set-Content (Join-Path $dist 'BodycamFpvFix.exe.sha256') -Encoding Ascii
+
+# 8. Release zip: the exe, the official signed ViGEmBus installer (BSD 3-Clause), licenses and a short readme.
+#    The program itself never downloads anything; the driver installer travels in the zip.
+$driverName = 'ViGEmBus_1.22.0_x64_x86_arm64.exe'
+$driverSha256 = '89220A7865076B342892F98865F3499FB7C4CFD673159E89D352C360FD014C6A'
+$driver = Join-Path $build $driverName
+if (-not (Test-Path $driver)) {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    Invoke-WebRequest "https://github.com/nefarius/ViGEmBus/releases/download/v1.22.0/$driverName" -OutFile $driver -UseBasicParsing
+}
+if ((Get-FileHash $driver -Algorithm SHA256).Hash -ne $driverSha256) { Remove-Item $driver; throw "Checksum mismatch for $driver" }
+$stage = Join-Path $build 'zip'
+if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+New-Item -ItemType Directory -Force (Join-Path $stage 'driver') | Out-Null
+Copy-Item $out (Join-Path $stage 'BodycamFpvFix.exe')
+Copy-Item $driver (Join-Path $stage "driver\$driverName")
+Copy-Item (Join-Path $root 'packaging\README.txt') (Join-Path $stage 'README.txt')
+Copy-Item (Join-Path $root 'LICENSE') (Join-Path $stage 'LICENSE.txt')
+Copy-Item (Join-Path $root 'THIRD-PARTY-NOTICES.md') (Join-Path $stage 'THIRD-PARTY-NOTICES.txt')
+$zipName = "BodycamFpvFix-$Version.zip"
+$zipOut = Join-Path $dist $zipName
+if (Test-Path $zipOut) { Remove-Item $zipOut }
+Get-ChildItem $dist -Filter 'BodycamFpvFix-*.zip*' | Remove-Item
+[IO.Compression.ZipFile]::CreateFromDirectory($stage, $zipOut, [IO.Compression.CompressionLevel]::Optimal, $false)
+$zipHash = (Get-FileHash $zipOut -Algorithm SHA256).Hash
+"$zipHash  $zipName" | Set-Content "$zipOut.sha256" -Encoding Ascii
+
 Write-Host "Built $out"
 Write-Host "SHA256 $hash"
+Write-Host "Built $zipOut"
+Write-Host "SHA256 $zipHash"

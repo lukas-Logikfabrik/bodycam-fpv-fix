@@ -11,13 +11,13 @@ Windows führt die Funke jetzt als Gamecontroller. Prüfen kannst du das mit `Wi
 
 ## 2. Bodycam FPV Fix starten
 
-1. `BodycamFpvFix.exe` aus dem [neuesten Release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) laden und starten.
+1. `BodycamFpvFix-v….zip` aus dem [neuesten Release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) (oder von Nexus Mods) laden, Rechtsklick → **Alle extrahieren…**, und `BodycamFpvFix.exe` aus dem entpackten Ordner starten. Nicht direkt aus dem Zip starten.
 2. Warnt Windows SmartScreen vor einer unbekannten App: **Weitere Informationen → Trotzdem ausführen**. Die exe ist nicht signiert; woher sie stammt, prüfst du mit `gh attestation verify` (siehe [README](../README.md#is-this-safe-to-run)).
 3. Oben bei **Radio** sollte deine Funke ausgewählt sein. Sonst aus der Liste wählen oder **Refresh** drücken.
 
 ### Der Treiber (nur beim ersten Mal)
 
-Der virtuelle Xbox-Controller braucht den kostenlosen Treiber **ViGEmBus**. Fehlt er, lädt das Programm den offiziellen Installer selbst herunter und prüft ihn:
+Der virtuelle Xbox-Controller braucht den kostenlosen Treiber **ViGEmBus**. Fehlt er, startet das Programm den offiziellen Installer aus dem Ordner `driver` im Zip, nachdem es ihn geprüft hat (das Programm selbst geht nie ins Internet):
 
 1. Die Windows-Admin-Abfrage bestätigen.
 2. Den Installer durchklicken.
