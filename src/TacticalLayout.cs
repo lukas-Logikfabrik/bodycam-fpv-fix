@@ -312,7 +312,10 @@ namespace BodycamFpvFix
         }
         void ArrangeCockpit()
         {
-            if (arranging || positions.Count == 0) return;
+            // Minimize can report a zero client area. Keep the last valid layout
+            // until restore, rather than constructing zero-point fonts.
+            if (arranging || positions.Count == 0 || WindowState == FormWindowState.Minimized ||
+                ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
             arranging = true;
             try
             {
@@ -325,7 +328,7 @@ namespace BodycamFpvFix
                 foreach (var column in columnWidths) column.Key.Width = column.Value * scale;
                 foreach (var item in textSizes)
                 {
-                    float size = item.Value * scale * 96f / DeviceDpi;
+                    float size = Math.Max(1f, item.Value * scale * 96f / Math.Max(1, DeviceDpi));
                     if (Math.Abs(item.Key.Font.Size - size) > .1f)
                     {
                         var old = item.Key.Font;

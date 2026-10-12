@@ -1,4 +1,10 @@
-## New in v1.2.0
+## Fixed in v1.2.1
+
+- Prevent zero-point font errors when minimizing or receiving a temporary zero-size window area.
+- Preserve the last valid layout until the window is restored.
+- Add minimize/restore coverage to the UI regression checks, now run in GitHub Actions.
+
+## Interface introduced in v1.2.0
 
 - Redesigned dark interface with a cleaner room background, condensed headings and sidebar navigation.
 - Live left/right stick previews, assignment shortcuts and visible radio/ARM switch status.
