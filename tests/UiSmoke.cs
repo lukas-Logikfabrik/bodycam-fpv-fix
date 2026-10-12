@@ -23,6 +23,10 @@ namespace BodycamFpvFix
             {
                 form.Show();
                 Application.DoEvents();
+                form.WindowState = FormWindowState.Minimized;
+                Application.DoEvents();
+                form.WindowState = FormWindowState.Normal;
+                Application.DoEvents();
                 foreach (string page in new[] { "CONTROLLER", "CALIBRATION", "SWITCHES", "BUTTONS", "ADVANCED" })
                 {
                     var nav = form.Controls.Find("nav-" + page, true).Single() as Button;
