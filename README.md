@@ -1,5 +1,7 @@
 # Bodycam FPV Fix
 
+**[View on Nexus Mods](https://www.nexusmods.com/bodycam/mods/66)**
+
 <img src="docs/bodycam-with-radio.jpg" align="right" width="280" alt="BETAFPV LiteRadio in front of Bodycam, flying the FPV drone">
 
 **Use your FPV controller (RC transmitter) to fly the drone in Bodycam.** BETAFPV LiteRadio, RadioMaster, Jumper, TBS, DJI and other EdgeTX or OpenTX radios: plug the radio in by USB, start one exe and fly with real sticks instead of a gamepad.
@@ -15,6 +17,8 @@ Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over
 **Guide:** [English](docs/GUIDE.md) · [Deutsch: Bodycam-Drohne mit FPV-Funke fliegen](docs/ANLEITUNG.md)
 
 ## Download
+
+Also available on **[Nexus Mods](https://www.nexusmods.com/bodycam/mods/66)**.
 
 **[Download the latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest)**: take `BodycamFpvFix-v….zip`. It contains the program and the official ViGEmBus driver installer, needs no installation and runs on Windows 10 and 11. Extract the whole zip first (right-click → **Extract All…**), then start `BodycamFpvFix.exe` from the extracted folder.
 
