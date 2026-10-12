@@ -1,4 +1,4 @@
-﻿<#
+<#
   Builds dist\BodycamFpvFix.exe from the sources in src\.
   Needs Windows with .NET Framework 4.8 and the Roslyn C# compiler from Visual Studio 2019+ or the VS Build Tools.
   The GitHub release workflow runs exactly this script.
@@ -73,7 +73,9 @@ $refs = 'mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Drawing.dll', '
     ForEach-Object { "/reference:$(Join-Path $fw $_)" }
 & $csc /nologo /noconfig /nostdlib+ /target:winexe /platform:anycpu /optimize+ /deterministic+ /debug- /langversion:7.3 `
     "/pathmap:$root=." "/out:$exe" "/win32manifest:$(Join-Path $root 'app.manifest')" `
-    $refs "/reference:$lib" $sources $info
+    $refs "/reference:$lib" "/resource:$root/assets/room.png,BodycamFpvFix.room.png" `
+    "/resource:$root/assets/BebasNeue-Regular.ttf,BodycamFpvFix.BebasNeue-Regular.ttf" `
+    "/resource:$root/assets/OFL-BebasNeue.txt,BodycamFpvFix.OFL.txt" $sources $info
 if ($LASTEXITCODE -ne 0) { throw "Compiler failed with exit code $LASTEXITCODE" }
 
 # 6. Merge the ViGEm library into the exe, so the program stays a single file without loading code at runtime
@@ -96,13 +98,17 @@ if (-not (Test-Path $driver)) {
 }
 if ((Get-FileHash $driver -Algorithm SHA256).Hash -ne $driverSha256) { Remove-Item $driver; throw "Checksum mismatch for $driver" }
 $stage = Join-Path $build 'zip'
-if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+$resolvedStage = [IO.Path]::GetFullPath($stage)
+$expectedStage = [IO.Path]::GetFullPath((Join-Path $root 'build/zip'))
+if ($resolvedStage -ne $expectedStage) { throw 'Release staging path escaped build/zip' }
+if (Test-Path -LiteralPath $stage) { if ((Get-Item -LiteralPath $stage).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Release staging folder must not be a link' }; Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force (Join-Path $stage 'driver') | Out-Null
 Copy-Item $out (Join-Path $stage 'BodycamFpvFix.exe')
 Copy-Item $driver (Join-Path $stage "driver\$driverName")
 Copy-Item (Join-Path $root 'packaging\README.txt') (Join-Path $stage 'README.txt')
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $stage 'LICENSE.txt')
 Copy-Item (Join-Path $root 'THIRD-PARTY-NOTICES.md') (Join-Path $stage 'THIRD-PARTY-NOTICES.txt')
+Copy-Item (Join-Path $root 'assets/OFL-BebasNeue.txt') (Join-Path $stage 'OFL-BebasNeue.txt')
 $zipName = "BodycamFpvFix-$Version.zip"
 $zipOut = Join-Path $dist $zipName
 if (Test-Path $zipOut) { Remove-Item $zipOut }

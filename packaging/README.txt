@@ -12,7 +12,7 @@ Start
    First start only: if the ViGEmBus driver is missing, the program starts the official
    driver installer from the folder "driver". Confirm the Windows admin prompt once and
    click through the installer. If the program asks for it, restart Windows.
-4. Tab "Sticks": click "Calibrate" once. Tab "Arm & Acro": click "Learn" for both switches.
+4. Page "CALIBRATION": click "Calibrate" once. Page "SWITCHES": click "Learn" for both switches.
 5. Click "Start" and leave the window open while you play.
 
 In Bodycam: take out the drone, flip the Acro switch, put the throttle down, switch Arm on.

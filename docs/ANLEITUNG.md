@@ -41,7 +41,7 @@ Jeden Stick bewegen und auf die Balken schauen:
 Bewegt sich ein Balken mit dem falschen Stick oder in die falsche Richtung:
 
 1. In dieser Zeile **Learn** drücken.
-2. Tun, was der blaue Text sagt (zum Beispiel *Push the RIGHT stick fully UP and hold it* = rechten Stick ganz nach oben und halten), und den Stick kurz halten.
+2. Tun, was der Hinweistext sagt (zum Beispiel *Push the RIGHT stick fully UP and hold it* = rechten Stick ganz nach oben und halten), und den Stick kurz halten.
 3. Die Zeile zeigt jetzt die richtige Achse, **invert** ist passend gesetzt.
 
 ### Kalibrieren
@@ -74,7 +74,7 @@ Für beide: **Learn** drücken, dann den gewünschten Schalter umlegen (bei Arm 
 
 ![Reiter Buttons](screenshot-buttons.png)
 
-Der Reiter **Buttons** listet jeden Xbox-Knopf. **Learn** drücken, dann einen Schalter umlegen oder einen Knopf an der Funke drücken. Danach wählen, wie der Xbox-Knopf gedrückt wird:
+Der Reiter **BUTTONS** listet jeden Xbox-Knopf. **Learn** drücken, dann einen Schalter umlegen oder einen Knopf an der Funke drücken. Danach wählen, wie der Xbox-Knopf gedrückt wird:
 
 | Modus | Wofür |
 |---|---|
@@ -82,7 +82,7 @@ Der Reiter **Buttons** listet jeden Xbox-Knopf. **Learn** drücken, dann einen S
 | Tap on every flip | Dinge, die das Spiel mit einem Druck umschaltet; jedes Umlegen ist ein Druck |
 | Tap when switched on | Nur ein Druck, wenn der Schalter an geht |
 
-Der Reiter **Raw input** zeigt alle Achsen und Knöpfe, die die Funke sendet, und welche Xbox-Knöpfe gerade rausgehen. Er hilft, wenn etwas nicht reagiert.
+Der Reiter **ADVANCED** zeigt alle Achsen und Knöpfe, die die Funke sendet, und welche Xbox-Knöpfe gerade rausgehen. Er hilft, wenn etwas nicht reagiert.
 
 ## 6. Start
 
@@ -111,7 +111,7 @@ Bodycam stellt die Drohnen-Raten sehr hoch ein. Unter **Einstellungen → Drohne
 | Problem | Lösung |
 |---|---|
 | Figur läuft von selbst rückwärts | Der Arm-Schalter ist noch an, deshalb geht der Gas-Stick ans Spiel. Arm ausschalten, solange du zu Fuß bist. |
-| Drohne oder Kamera rollt oder dreht von selbst | Im Reiter Sticks **Calibrate** ausführen. Zeigt ein Stick in der Mitte danach noch einen großen Wert, sendet die Funke selbst ihren Anschlag: Funke kalibrieren, dann hier erneut. |
+| Drohne oder Kamera rollt oder dreht von selbst | Unter CALIBRATION **Calibrate** ausführen. Zeigt ein Stick in der Mitte danach noch einen großen Wert, sendet die Funke selbst ihren Anschlag: Funke kalibrieren, dann hier erneut. |
 | Bodycam zeigt 50 % Gas, obwohl der Stick unten ist | Der Arm-Schalter ist aus, das Gas ist in der Mitte gesperrt. Arm einschalten. |
 | Linker Stick fährt vor/zurück, rechter bewegt die Kamera | Die Drohne ist im normalen Modus von Bodycam. Acro-Schalter umlegen (LB). |
 | Funke steht nicht in der Liste | Funke in den USB-Joystick-Modus schalten. Das Programm findet sie innerhalb von zwei Sekunden; **Refresh** sucht sofort. |

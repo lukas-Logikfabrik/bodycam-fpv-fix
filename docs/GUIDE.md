@@ -74,7 +74,7 @@ For each one: click **Learn**, then flip the switch you want (for Arm: flip it t
 
 ![Buttons tab](screenshot-buttons.png)
 
-The tab **Buttons** lists every Xbox button. Click **Learn**, then flip a switch or press a button on the radio. Choose how it should press the Xbox button:
+The tab **BUTTONS** lists every Xbox button. Click **Learn**, then flip a switch or press a button on the radio. Choose how it should press the Xbox button:
 
 | Mode | Use it for |
 |---|---|
@@ -82,7 +82,7 @@ The tab **Buttons** lists every Xbox button. Click **Learn**, then flip a switch
 | Tap on every flip | Things the game toggles with one press, each flip is one press |
 | Tap when switched on | One press only when the switch goes on |
 
-The tab **Raw input** shows every axis and button the radio sends and which Xbox buttons go out right now. It helps when something does not react.
+The tab **ADVANCED** shows every axis and button the radio sends and which Xbox buttons go out right now. It helps when something does not react.
 
 ## 6. Start
 
