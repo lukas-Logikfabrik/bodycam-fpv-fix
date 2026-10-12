@@ -8,9 +8,9 @@
 
 Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over USB and turns it into a virtual Xbox controller with the stick layout that Bodycam's Acro mode expects: throttle and yaw on the left stick, pitch and roll on the right. Two switches on your radio arm the drone (RB) and toggle Acro mode (LB). Any other Xbox button can go on any switch or button of the radio, and a calibration wizard corrects off-center sticks and short stick travel.
 
-![Bodycam FPV Fix running with a BETAFPV LiteRadio](docs/screenshot-sticks.png)
+![Bodycam FPV Fix interface preview without a connected radio](docs/screenshot-controller.png)
 
-| Arm & Acro | Buttons | Raw input |
+| Switches | Buttons | Advanced |
 |---|---|---|
 | ![Arm and Acro switches](docs/screenshot-arm-acro.png) | ![Free button mapping](docs/screenshot-buttons.png) | ![Raw input from the radio](docs/screenshot-raw.png) |
 
@@ -28,9 +28,9 @@ Already have the ViGEmBus driver (for example from DS4Windows)? Then the single 
 
 1. Connect the radio by USB. If the radio asks for a USB mode, choose **USB Joystick (HID)**.
 2. Extract the zip and start `BodycamFpvFix.exe`. On the first start it runs the included ViGEmBus driver installer; confirm the Windows admin prompt once and click through the installer.
-3. Tab **Sticks**: move the sticks, the bars should follow. If an axis is wrong or reversed, click **Learn** next to it and follow the blue prompt. Click **Calibrate** once and follow the two steps.
-4. Tab **Arm & Acro**: click **Learn** next to Arm and flip your arm switch on. Do the same for Acro mode. (Preset for the BETAFPV LiteRadio: SA and the rightmost switch.)
-5. Optional, tab **Buttons**: put more Xbox buttons on switches, for example to leave the drone.
+3. Tab **CALIBRATION**: move the sticks, the bars should follow. If an axis is wrong or reversed, click **Learn** next to it and follow the prompt. Click **Calibrate** once and follow the two steps.
+4. Tab **SWITCHES**: click **Learn** next to Arm and flip your arm switch on. Do the same for Acro mode. (Preset for the BETAFPV LiteRadio: SA and the rightmost switch.)
+5. Optional, tab **BUTTONS**: put more Xbox buttons on switches, for example to leave the drone.
 6. Click **Start** and leave the window open while you play.
 
 In Bodycam: take out the drone, flip the Acro switch, put the throttle down and switch Arm on. Keep Arm on while you fly and switch it off when you are back on foot.
@@ -79,7 +79,7 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 | Problem | Fix |
 |---|---|
 | Your character walks backwards by itself | The Arm switch is still on, so the throttle stick goes to the game. Switch Arm off while you are on foot. |
-| The drone or camera keeps rolling or turning by itself | Click **Calibrate** in the Sticks tab. If a stick still shows a large value while centered, the radio itself sends its end position: calibrate the radio (see its manual), then calibrate again here. |
+| The drone or camera keeps rolling or turning by itself | Click **Calibrate** on the CALIBRATION page. If a stick still shows a large value while centered, the radio itself sends its end position: calibrate the radio (see its manual), then calibrate again here. |
 | Bodycam shows 50 % throttle with the stick down | The arm switch is off, so the throttle is locked at center. Switch Arm on. |
 | Left stick moves the drone forward/back, right stick moves the camera | The drone is in Bodycam's normal mode. Flip the Acro switch (LB). |
 | The program says the driver installer was not found | You started the exe from inside the zip, or only downloaded the single exe. Extract the whole zip and start the exe from there, or install ViGEmBus 1.22.0 from its [release page](https://github.com/nefarius/ViGEmBus/releases/tag/v1.22.0). |

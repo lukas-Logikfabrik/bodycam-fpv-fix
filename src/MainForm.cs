@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace BodycamFpvFix
 {
-    sealed class MainForm : Form
+    sealed partial class MainForm : Form
     {
         const string StickThrottle = "Throttle", StickYaw = "Yaw", StickPitch = "Pitch", StickRoll = "Roll";
         static readonly string[] Sticks = { StickThrottle, StickYaw, StickPitch, StickRoll };
@@ -23,7 +23,7 @@ namespace BodycamFpvFix
         DateTime lastScan;
 
         // Top
-        readonly ComboBox deviceBox = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+        readonly ComboBox deviceBox = new DarkComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
         readonly Button refreshButton = new Button { Text = "Refresh", AutoSize = true };
         readonly Label driverLabel = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
         readonly Button driverButton = new Button { Text = "Install driver (one admin prompt)", AutoSize = true, Visible = false };
@@ -70,34 +70,38 @@ namespace BodycamFpvFix
         Dictionary<string, int> calCenter, calMin, calMax;
 
         DateTime lastRawUpdate;
-        Font boldFont;
         int shownAxisCount = -1;
 
-        public MainForm()
+        public MainForm(bool preview = false)
         {
             Text = "Bodycam FPV Fix " + DisplayVersion();
             Font = new Font("Segoe UI", 9f);
-            AutoScaleMode = AutoScaleMode.Dpi;
+            // The cockpit lays out in physical pixels and adjusts point sizes for the display DPI.
+            AutoScaleMode = AutoScaleMode.None;
             AutoScaleDimensions = new SizeF(96f, 96f);
-            ClientSize = new Size(700, 660);
-            MinimumSize = new Size(620, 640);
+            var workArea = Screen.PrimaryScreen.WorkingArea;
+            ClientSize = new Size(Math.Min(1280, workArea.Width - 40), Math.Min(850, workArea.Height - 40));
+            MinimumSize = new Size(Math.Min(1000, workArea.Width - 40), Math.Min(680, workArea.Height - 40));
+            FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
-            boldFont = new Font(Font, FontStyle.Bold);
             BuildLayout();
 
             deviceBox.SelectedIndexChanged += (s, e) => SelectDevice(deviceBox.SelectedItem as HidDeviceInfo);
             refreshButton.Click += (s, e) => RefreshDevices();
             driverButton.Click += async (s, e) => await InstallDriver();
             startButton.Click += (s, e) => { if (bridge != null) bridge.OutputWanted = !bridge.OutputWanted; };
-            autoStartBox.CheckedChanged += (s, e) => { settings.AutoStart = autoStartBox.Checked; settings.Save(); };
+            autoStartBox.CheckedChanged += (s, e) => { if (!loading) { settings.AutoStart = autoStartBox.Checked; settings.Save(); } };
             lockBox.CheckedChanged += (s, e) => { if (!loading && profile != null) { profile.LockThrottleWhenDisarmed = lockBox.Checked; settings.Save(); } };
             calibrateButton.Click += (s, e) => CalibrateClicked();
             resetCalButton.Click += (s, e) => ResetCalClicked();
             timer.Tick += (s, e) => Tick();
 
+            loading = true;
             autoStartBox.Checked = settings.AutoStart;
+            loading = false;
+            if (preview) return; // UI smoke test: no device access, driver install, timers or settings writes.
             Shown += async (s, e) =>
             {
                 RefreshDevices();
@@ -115,61 +119,6 @@ namespace BodycamFpvFix
         }
 
         // ---------- Layout ----------
-
-        void BuildLayout()
-        {
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(12) };
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            Controls.Add(root);
-
-            // Radio and driver
-            var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3 };
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            top.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            top.Controls.Add(new Label { Text = "Radio:", AutoSize = true, Anchor = AnchorStyles.Left }, 0, 0);
-            top.Controls.Add(deviceBox, 1, 0);
-            top.Controls.Add(refreshButton, 2, 0);
-            var driverRow = new FlowLayoutPanel { AutoSize = true, Dock = DockStyle.Fill, WrapContents = false };
-            driverRow.Controls.Add(driverLabel);
-            driverRow.Controls.Add(driverButton);
-            top.Controls.Add(driverRow, 0, 1);
-            top.SetColumnSpan(driverRow, 3);
-            root.Controls.Add(top, 0, 0);
-
-            var tabs = new TabControl { Dock = DockStyle.Fill };
-            tabs.TabPages.Add(SticksPage());
-            tabs.TabPages.Add(SwitchesPage());
-            tabs.TabPages.Add(ButtonsPage());
-            var raw = new TabPage("Raw input") { Padding = new Padding(10) };
-            raw.Controls.Add(rawLabel);
-            tabs.TabPages.Add(raw);
-            root.Controls.Add(tabs, 0, 1);
-
-            // Start, messages, hint
-            var bottom = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1 };
-            var startRow = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 2 };
-            startRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            startRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
-            startRow.Controls.Add(startButton, 0, 0);
-            startRow.Controls.Add(autoStartBox, 1, 0);
-            bottom.Controls.Add(startRow);
-            bottom.Controls.Add(promptLabel);
-            bottom.Controls.Add(statusLabel);
-            bottom.Controls.Add(warningLabel);
-            bottom.Controls.Add(new Label
-            {
-                AutoSize = true,
-                MaximumSize = new Size(640, 0),
-                ForeColor = SystemColors.GrayText,
-                Text = "In Bodycam: take out the drone, flip the Acro switch (LB), throttle down, then switch Arm on (RB). " +
-                       "Keep Arm on while flying, switch it off when you are back on foot. " +
-                       "Tip: the default drone RC Rate in Bodycam is 2.0, which is very twitchy; around 1.0 feels like a normal quad."
-            });
-            root.Controls.Add(bottom, 0, 2);
-        }
 
         TabPage SticksPage()
         {
@@ -198,7 +147,7 @@ namespace BodycamFpvFix
         void AddStickRow(TableLayoutPanel t, int row, string stick)
         {
             t.Controls.Add(new Label { Text = stick, AutoSize = true, Anchor = AnchorStyles.Left }, 0, row);
-            var box = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+            var box = new DarkComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
             box.SelectedIndexChanged += (s, e) => { if (!loading && profile != null) { StickOf(stick).Axis = box.SelectedItem as string ?? ""; settings.Save(); } };
             axisBoxes[stick] = box;
             t.Controls.Add(box, 1, row);
@@ -262,7 +211,7 @@ namespace BodycamFpvFix
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             var intro = new Label
             {
-                Text = "Put any Xbox button on a switch or button of your radio. Bodycam already uses RB for arming and LB for Acro mode (tab Arm & Acro).",
+                Text = "Put any Xbox button on a switch or button of your radio. Bodycam already uses RB for arming and LB for Acro mode (SWITCHES).",
                 AutoSize = true, MaximumSize = new Size(620, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(0, 0, 0, 6), UseMnemonic = false
             };
             t.Controls.Add(intro, 0, 0);
@@ -277,7 +226,7 @@ namespace BodycamFpvFix
                 var src = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
                 buttonSourceLabels[tg] = src;
                 t.Controls.Add(src, 1, row);
-                var mode = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
+                var mode = new DarkComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Dock = DockStyle.Fill };
                 mode.Items.AddRange(ModeNames);
                 mode.SelectedIndexChanged += (s, e) =>
                 {
@@ -344,7 +293,7 @@ namespace BodycamFpvFix
             profile = null;
             calStep = 0;
             learning = null;
-            if (device == null) return;
+            if (device == null) { UpdateCockpit(); return; }
             profile = settings.ProfileFor(device);
             settings.LastDeviceKey = device.Key;
             settings.Save();
@@ -364,8 +313,8 @@ namespace BodycamFpvFix
         async Task<bool> CheckDriver()
         {
             bool ok = await Task.Run(() => VirtualPad.DriverInstalled());
-            driverLabel.Text = ok ? "ViGEmBus driver: installed" : "ViGEmBus driver missing (needed for the virtual Xbox controller).";
-            driverLabel.ForeColor = ok ? Color.SeaGreen : Color.Firebrick;
+            driverLabel.Text = ok ? "DRIVER READY" : "DRIVER MISSING";
+            driverLabel.ForeColor = ok ? Color.Gainsboro : Color.Salmon;
             driverButton.Visible = !ok;
             driverReady = ok;
             return ok;
@@ -391,7 +340,7 @@ namespace BodycamFpvFix
             }
             driverButton.Enabled = false;
             driverLabel.Text = "Starting the ViGEmBus driver installer, Windows will ask for admin rights ...";
-            driverLabel.ForeColor = SystemColors.ControlText;
+            driverLabel.ForeColor = Color.Gainsboro;
             string error = await Task.Run(() => DriverSetup.Install(installer));
             driverButton.Enabled = true;
             bool ok = await CheckDriver();
@@ -439,6 +388,7 @@ namespace BodycamFpvFix
 
         void Tick()
         {
+            UpdateCockpit();
             if (bridge == null)
             {
                 startButton.Text = "Start";
@@ -452,13 +402,24 @@ namespace BodycamFpvFix
 
             startButton.Enabled = !driverButton.Visible && bridge.DeviceConnected;
             startButton.Text = bridge.OutputWanted ? "Stop" : "Start";
-            startButton.BackColor = bridge.OutputActive ? Color.FromArgb(200, 235, 205) : SystemColors.Control;
+            startButton.BackColor = Color.FromArgb(238, 238, 233);
             statusLabel.Text = bridge.Status;
 
+            var input = bridge.Last;
+            if (!bridge.DeviceConnected || input == null)
+            {
+                rawLabel.Text = "No radio input.";
+                armStateLabel.Text = "Arm switch: no input";
+                warningLabel.Text = "Keep ARM off when on foot.";
+                return;
+            }
             var o = bridge.Output;
             warningLabel.Text = string.Join(Environment.NewLine, new[] { ThrottleWarning(o), bridge.Warning }.Where(w => w.Length > 0));
+            if (warningLabel.Text.Length == 0) warningLabel.Text = "Keep ARM off when on foot.";
+            warningLabel.ForeColor = ThrottleWarning(o).Length > 0 || bridge.Warning.Length > 0 ? Color.Salmon : Color.Gainsboro;
             bars[StickThrottle].Value = o.ThrottleLocked ? 0 : o.Throttle;
             bars[StickThrottle].Dimmed = o.ThrottleLocked;
+            bars[StickYaw].Dimmed = bars[StickPitch].Dimmed = bars[StickRoll].Dimmed = false;
             bars[StickYaw].Value = o.Yaw;
             bars[StickPitch].Value = o.Pitch;
             bars[StickRoll].Value = o.Roll;
@@ -467,8 +428,9 @@ namespace BodycamFpvFix
                           : "Arm switch: OFF" + (o.ThrottleLocked ? ", throttle locked at center" : "");
             foreach (var kv in buttonNameLabels)
             {
-                var want = o.Pressed.Contains(kv.Key) ? boldFont : Font;
-                if (kv.Value.Font != want) kv.Value.Font = want;
+                var style = o.Pressed.Contains(kv.Key) ? FontStyle.Bold : FontStyle.Regular;
+                if (kv.Value.Font.Style != style)
+                    ReplaceSizedFont(kv.Value, new Font(kv.Value.Font, style));
             }
 
             var s = bridge.Last;
@@ -501,10 +463,10 @@ namespace BodycamFpvFix
         {
             if (!bridge.OutputActive || !bridge.DeviceConnected || o.ThrottleLocked) return "";
             if (string.IsNullOrWhiteSpace(profile?.ArmSource))
-                return "No Arm switch set: the throttle always goes to the game, so your character walks on foot. Set one in the tab Arm & Acro.";
+                return "No Arm switch set: the throttle reaches the game on foot. Assign one in SWITCHES.";
             if (!o.Armed)
-                return "Throttle lock is off: the throttle always goes to the game, so your character walks on foot. Turn the lock on in the tab Arm & Acro.";
-            return "ARM IS ON: the throttle goes to the game. Switch Arm OFF before you are back on foot, otherwise your character walks backwards.";
+                return "Throttle lock is off: the throttle reaches the game on foot. Enable the lock in SWITCHES.";
+            return "ARM IS ON. Switch ARM OFF before returning on foot to prevent unwanted movement.";
         }
 
         // ---------- Calibration ----------
@@ -683,8 +645,8 @@ namespace BodycamFpvFix
         {
             var g = e.Graphics;
             var r = ClientRectangle;
-            g.Clear(Color.FromArgb(235, 235, 235));
-            using (var fill = new SolidBrush(Dimmed ? Color.Silver : Color.FromArgb(70, 130, 200)))
+            g.Clear(Color.FromArgb(24, 25, 26));
+            using (var fill = new SolidBrush(Dimmed ? Color.FromArgb(44, 45, 46) : Color.FromArgb(78, 80, 82)))
             {
                 if (FromLeft)
                 {
@@ -700,7 +662,7 @@ namespace BodycamFpvFix
                 }
             }
             string label = FromLeft ? $"{(value + 1) * 50:0}%" : $"{value * 100:+0;-0;0}%";
-            TextRenderer.DrawText(g, label, Font, r, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            TextRenderer.DrawText(g, label, Font, r, Color.Gainsboro, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
             g.DrawRectangle(Pens.DarkGray, 0, 0, r.Width - 1, r.Height - 1);
         }
     }

@@ -70,3 +70,12 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 `build.ps1` uses ILRepack (https://github.com/gluck/il-repack, Apache License 2.0) to merge the
 ViGEm client library into the exe. No ILRepack code ends up in BodycamFpvFix.exe.
+# Interface assets
+
+The condensed interface typeface is Bebas Neue, Copyright © 2010 by Dharma Type,
+licensed under the SIL Open Font License 1.1. Full license: `assets/OFL-BebasNeue.txt`
+(distributed as `OFL-BebasNeue.txt`). Source: https://github.com/google/fonts/tree/main/ofl/bebasneue
+It is an independently licensed typeface, not the game's original font.
+
+The room background in `assets/room.png` was generated for this fan utility using
+OpenAI image generation. It is not extracted from Bodycam or supplied by Reissad Studio.
