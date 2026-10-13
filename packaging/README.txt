@@ -35,4 +35,14 @@ THIRD-PARTY-NOTICES.txt                   licenses of the included third-party p
 Windows SmartScreen may warn on the first start because the exe is new and not code-signed:
 click "More info" -> "Run anyway". The source code and a build attestation are on GitHub.
 
+Official downloads
+------------------
+Bodycam FPV Fix is only published on GitHub and Nexus Mods:
+  https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases
+  https://www.nexusmods.com/bodycam/mods/66
+Copies from anywhere else do not come from us. To check your copy without extra tools,
+type "powershell" into the address bar of this folder, press Enter and run
+  (Get-FileHash .\BodycamFpvFix.exe).Hash
+The result must match "SHA-256 of BodycamFpvFix.exe" on the GitHub release page of your version.
+
 Bodycam FPV Fix is a fan project and is not affiliated with Reissad Studio or any radio maker.

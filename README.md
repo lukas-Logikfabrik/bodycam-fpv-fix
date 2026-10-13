@@ -18,7 +18,8 @@ Bodycam only understands Xbox controllers. Bodycam FPV Fix reads your radio over
 
 ## Download
 
-Also available on **[Nexus Mods](https://www.nexusmods.com/bodycam/mods/66)**.
+> [!IMPORTANT]
+> **Bodycam FPV Fix is only published here on GitHub ([releases](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases)) and on [Nexus Mods](https://www.nexusmods.com/bodycam/mods/66).** Copies from other sites, re-uploads and builds from forks of this repository do not come from us and can contain anything. How to check your copy without extra tools: [Is this safe to run?](#is-this-safe-to-run)
 
 **[Download the latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest)**: take `BodycamFpvFix-v….zip`. It contains the program and the official ViGEmBus driver installer, needs no installation and runs on Windows 10 and 11. Extract the whole zip first (right-click → **Extract All…**), then start `BodycamFpvFix.exe` from the extracted folder.
 
@@ -41,7 +42,13 @@ In Bodycam: take out the drone, flip the Acro switch, put the throttle down and 
 ## Is this safe to run?
 
 - **All source code is in this repository.** The exe in the releases is built by [GitHub Actions](.github/workflows/build.yml) from exactly this code, not on anyone's PC.
-- **Every release has a SHA-256 checksum and a GitHub build attestation.** With the [GitHub CLI](https://cli.github.com/) you can check that your download was built by this repository:
+- **Only the [releases](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases) here and [Nexus Mods](https://www.nexusmods.com/bodycam/mods/66) are official.** Anyone can copy open source code, so a file from somewhere else, or built from a fork, may have been changed.
+- **Check your copy, no extra download needed.** Open the folder with `BodycamFpvFix.exe`, type `powershell` into the address bar of the folder window and press Enter. Then run:
+  ```
+  (Get-FileHash .\BodycamFpvFix.exe).Hash
+  ```
+  The result must match *SHA-256 of BodycamFpvFix.exe* on the [release page](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases) of your version. The exe inside the zip is the same file as the single exe, so this works for every download. If it does not match, delete the file.
+- **Every release also has a GitHub build attestation.** With the [GitHub CLI](https://cli.github.com/) you can additionally check that your download was built by this repository:
   ```
   gh attestation verify BodycamFpvFix.exe --repo lukas-Logikfabrik/bodycam-fpv-fix
   ```
