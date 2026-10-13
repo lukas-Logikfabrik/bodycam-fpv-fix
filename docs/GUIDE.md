@@ -11,8 +11,8 @@ Windows now lists the radio as a game controller. You can check this with `Win +
 
 ## 2. Start Bodycam FPV Fix
 
-1. Download `BodycamFpvFix-v….zip` from the [latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) (or from Nexus Mods), right-click it → **Extract All…**, and start `BodycamFpvFix.exe` from the extracted folder. Do not start it from inside the zip.
-2. If Windows SmartScreen warns about an unknown app, click **More info → Run anyway**. The exe is not code-signed; you can check where it came from with `gh attestation verify` (see the [README](../README.md#is-this-safe-to-run)).
+1. Download `BodycamFpvFix-v….zip` from the [latest release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) (or from [Nexus Mods](https://www.nexusmods.com/bodycam/mods/66); only these two sources are official), right-click it → **Extract All…**, and start `BodycamFpvFix.exe` from the extracted folder. Do not start it from inside the zip.
+2. If Windows SmartScreen warns about an unknown app, click **More info → Run anyway**. The exe is not code-signed. To check that your copy is the official one, type `powershell` into the address bar of the extracted folder, press Enter and run `(Get-FileHash .\BodycamFpvFix.exe).Hash`. The result must match *SHA-256 of BodycamFpvFix.exe* on the release page of your version (more in the [README](../README.md#is-this-safe-to-run)).
 3. Your radio should be selected at the top. If not, pick it from the list or click **Refresh**.
 
 ### The driver (only the first time)

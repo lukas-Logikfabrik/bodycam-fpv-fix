@@ -11,8 +11,8 @@ Windows führt die Funke jetzt als Gamecontroller. Prüfen kannst du das mit `Wi
 
 ## 2. Bodycam FPV Fix starten
 
-1. `BodycamFpvFix-v….zip` aus dem [neuesten Release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) (oder von Nexus Mods) laden, Rechtsklick → **Alle extrahieren…**, und `BodycamFpvFix.exe` aus dem entpackten Ordner starten. Nicht direkt aus dem Zip starten.
-2. Warnt Windows SmartScreen vor einer unbekannten App: **Weitere Informationen → Trotzdem ausführen**. Die exe ist nicht signiert; woher sie stammt, prüfst du mit `gh attestation verify` (siehe [README](../README.md#is-this-safe-to-run)).
+1. `BodycamFpvFix-v….zip` aus dem [neuesten Release](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases/latest) (oder von [Nexus Mods](https://www.nexusmods.com/bodycam/mods/66); nur diese beiden Quellen sind offiziell) laden, Rechtsklick → **Alle extrahieren…**, und `BodycamFpvFix.exe` aus dem entpackten Ordner starten. Nicht direkt aus dem Zip starten.
+2. Warnt Windows SmartScreen vor einer unbekannten App: **Weitere Informationen → Trotzdem ausführen**. Die exe ist nicht signiert. Ob deine Kopie die offizielle ist, prüfst du ohne Zusatzprogramm: im entpackten Ordner `powershell` in die Adresszeile tippen, Enter, dann `(Get-FileHash .\BodycamFpvFix.exe).Hash` ausführen. Das Ergebnis muss mit *SHA-256 of BodycamFpvFix.exe* auf der Release-Seite deiner Version übereinstimmen (mehr in der [README](../README.md#is-this-safe-to-run)).
 3. Oben bei **Radio** sollte deine Funke ausgewählt sein. Sonst aus der Liste wählen oder **Refresh** drücken.
 
 ### Der Treiber (nur beim ersten Mal)
