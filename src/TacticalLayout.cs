@@ -18,6 +18,9 @@ namespace BodycamFpvFix
         readonly Dictionary<ColumnStyle, Control> columnOwners = new Dictionary<ColumnStyle, Control>();
         readonly Dictionary<Control, Panel> pageOf = new Dictionary<Control, Panel>();   // every control inside a page
         readonly HashSet<Panel> stalePages = new HashSet<Panel>();   // hidden pages not yet at the current scale
+        readonly Dictionary<Panel, List<Control>> preparing = new Dictionary<Panel, List<Control>>();   // held layouts
+        readonly Queue<Control> windowsToCreate = new Queue<Control>();
+        float layoutScale = 1f;
         readonly Dictionary<string, Panel> pages = new Dictionary<string, Panel>();
         readonly Dictionary<string, Button> navigation = new Dictionary<string, Button>();
         readonly Dictionary<string, Label> readouts = new Dictionary<string, Label>();
@@ -318,9 +321,17 @@ namespace BodycamFpvFix
             try
             {
             activePage = name;
-            if (stalePages.Contains(pages[name])) ArrangeCockpit();   // bring it to the current size before it shows
+            var target = pages[name];
+            if (stalePages.Contains(target)) ArrangeCockpit();   // bring it to the current size before it shows
+            FinishPreparing(target);
             pageTitle.Text = name;
-            foreach (var page in pages) page.Value.Visible = page.Key == name;
+            // If the page has no windows yet, Windows creates one per control as it shows; hold the layout meanwhile,
+            // otherwise every new combo box and button re-measures the whole table (one second on BUTTONS). A page
+            // that already has its windows is laid out at this size and needs no new layout pass.
+            bool firstShow = !target.IsHandleCreated;
+            var held = SuspendTree(target);
+            foreach (var page in pages) page.Value.Visible = page.Value == target;
+            ResumeTree(held, firstShow);
             foreach (var nav in navigation)
             {
                 bool selected = nav.Key == name;
@@ -357,6 +368,93 @@ namespace BodycamFpvFix
             }
             resizedFonts[control] = font;
         }
+        // Bounds, fixed column widths and fonts at one scale, for the controls that `include` accepts. Combo boxes are
+        // collected in `last` instead of moved (see ArrangeCockpit).
+        void ApplyScale(float scale, Func<Control, bool> include, List<KeyValuePair<Control, Rectangle>> last)
+        {
+            foreach (var item in positions)
+            {
+                if (!include(item.Key)) continue;
+                var r = item.Value;
+                var bounds = new Rectangle((int)(r.X * scale), (int)(r.Y * scale), (int)(r.Width * scale), (int)(r.Height * scale));
+                if (item.Key is ComboBox) last.Add(new KeyValuePair<Control, Rectangle>(item.Key, bounds));
+                else item.Key.Bounds = bounds;
+            }
+            foreach (var column in columnWidths)
+                if (include(columnOwners[column.Key])) column.Key.Width = column.Value * scale;
+            // Design sizes are points at 96 DPI. Each font gets the matching pixel size from the same scale as the
+            // layout, so text always fits its box, whatever display scale Windows reports. Whole pixels, as Windows
+            // draws them anyway: while dragging the window edge a font only changes every few steps, which matters
+            // because a combo box re-measures and repaints on every font change. Containers show no text of their own.
+            foreach (var item in textSizes)
+            {
+                if (item.Key is Panel || !include(item.Key)) continue;
+                float size = Math.Max(1f, (float)Math.Round(item.Value * scale * 96f / 72f));
+                var old = item.Key.Font;
+                if (old.Unit != GraphicsUnit.Pixel || Math.Abs(old.Size - size) > .1f)
+                    ReplaceSizedFont(item.Key, new Font(old.FontFamily, size, old.Style, GraphicsUnit.Pixel));
+            }
+        }
+
+        // After start, the hidden pages get their sizes right away (cheap while they have no windows yet) and then their
+        // windows a few at a time while the program idles (PrepareSomeWindows), so opening a page for the first time
+        // only has to show it. BUTTONS alone has about 80 controls, a quarter of a second to create in one go.
+        void PrepareHiddenPages()
+        {
+            foreach (var page in pages.Values.Where(p => stalePages.Contains(p) && !p.IsHandleCreated && !preparing.ContainsKey(p)).ToList())
+            {
+                var held = SuspendTree(page);   // one layout pass when the page is complete
+                var last = new List<KeyValuePair<Control, Rectangle>>();
+                ApplyScale(layoutScale, c => c == page || pageOf.TryGetValue(c, out var p) && p == page, last);
+                foreach (var move in last) move.Key.Bounds = move.Value;
+                stalePages.Remove(page);
+                preparing[page] = held;
+                QueueWindows(page);
+            }
+        }
+
+        void QueueWindows(Control c)
+        {
+            windowsToCreate.Enqueue(c);
+            foreach (Control child in c.Controls) QueueWindows(child);
+        }
+
+        // Called by the UI timer: creates windows for about 8 ms per tick, so the program stays responsive. The pages are
+        // queued one after another; a page that is complete gets its layout pass in a tick of its own.
+        void PrepareSomeWindows()
+        {
+            if (preparing.Count == 0) return;
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            while (windowsToCreate.Count > 0 && watch.ElapsedMilliseconds < 8)
+            {
+                var c = windowsToCreate.Dequeue();
+                CreateWindow(c);
+                var page = PreparingPageOf(c);
+                if (page != null && (windowsToCreate.Count == 0 || PreparingPageOf(windowsToCreate.Peek()) != page))
+                {
+                    FinishPreparing(page);
+                    break;
+                }
+            }
+        }
+
+        Panel PreparingPageOf(Control c) =>
+            c is Panel panel && preparing.ContainsKey(panel) ? panel : pageOf.TryGetValue(c, out var page) && preparing.ContainsKey(page) ? page : null;
+
+        // Creates the windows still missing on this page and ends its held layout (also when it is opened early).
+        void FinishPreparing(Panel page)
+        {
+            if (!preparing.TryGetValue(page, out var held)) return;
+            preparing.Remove(page);
+            foreach (var c in windowsToCreate.Where(c => c == page || pageOf.TryGetValue(c, out var p) && p == page).ToList()) CreateWindow(c);
+            ResumeTree(held, true);
+        }
+
+        static void CreateWindow(Control c)
+        {
+            if (!c.IsDisposed && !c.IsHandleCreated) { var unused = c.Handle; }
+        }
+
         void ArrangeCockpit()
         {
             // Minimize can report a zero client area. Keep the last valid layout
@@ -365,6 +463,7 @@ namespace BodycamFpvFix
                 ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
             arranging = true;
             float scale = Math.Min(ClientSize.Width / 1280f, ClientSize.Height / 850f);
+            layoutScale = scale;
             stalePages.Clear();
             foreach (var page in pages) if (page.Key != activePage) stalePages.Add(page.Value);
             var held = SuspendTree(this);
@@ -377,28 +476,7 @@ namespace BodycamFpvFix
                 closeWindow.SetBounds(ClientSize.Width - (int)(45 * scale), 0, w, h);
                 maximizeWindow.SetBounds(ClientSize.Width - (int)(85 * scale), 0, w, h);
                 minimizeWindow.SetBounds(ClientSize.Width - (int)(125 * scale), 0, w, h);
-                foreach (var item in positions)
-                {
-                    if (OnHiddenPage(item.Key)) continue;
-                    var r = item.Value;
-                    var bounds = new Rectangle((int)(r.X * scale), (int)(r.Y * scale), (int)(r.Width * scale), (int)(r.Height * scale));
-                    if (item.Key is ComboBox) last.Add(new KeyValuePair<Control, Rectangle>(item.Key, bounds));
-                    else item.Key.Bounds = bounds;
-                }
-                foreach (var column in columnWidths)
-                    if (!OnHiddenPage(columnOwners[column.Key])) column.Key.Width = column.Value * scale;
-                // Design sizes are points at 96 DPI. Each font gets the matching pixel size from the same scale as the
-                // layout, so text always fits its box, whatever display scale Windows reports. Whole pixels, as Windows
-                // draws them anyway: while dragging the window edge a font only changes every few steps, which matters
-                // because a combo box rebuilds its window on every font change. Containers show no text of their own.
-                foreach (var item in textSizes)
-                {
-                    if (item.Key is Panel || OnHiddenPage(item.Key)) continue;
-                    float size = Math.Max(1f, (float)Math.Round(item.Value * scale * 96f / 72f));
-                    var old = item.Key.Font;
-                    if (old.Unit != GraphicsUnit.Pixel || Math.Abs(old.Size - size) > .1f)
-                        ReplaceSizedFont(item.Key, new Font(old.FontFamily, size, old.Style, GraphicsUnit.Pixel));
-                }
+                ApplyScale(scale, c => !OnHiddenPage(c), last);
             }
             finally
             {

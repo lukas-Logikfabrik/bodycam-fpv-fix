@@ -110,6 +110,7 @@ namespace BodycamFpvFix
             Shown += async (s, e) =>
             {
                 timer.Start();   // first, so the window stays alive even if the first device scan fails
+                PrepareHiddenPages();
                 RefreshDevices();
                 bool driverOk = await CheckDriver();
                 if (!driverOk && !driverInstallTried)
@@ -399,6 +400,7 @@ namespace BodycamFpvFix
 
         void Tick()
         {
+            PrepareSomeWindows();
             UpdateCockpit();
             if (bridge == null)
             {
