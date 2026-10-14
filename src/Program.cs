@@ -26,6 +26,8 @@ namespace BodycamFpvFix
             }
         }
 
+        static readonly System.Collections.Generic.HashSet<string> shownErrors = new System.Collections.Generic.HashSet<string>();
+
         static void ShowError(Exception ex)
         {
             try
@@ -34,7 +36,11 @@ namespace BodycamFpvFix
                 File.AppendAllText(Path.Combine(AppSettings.Folder, "error.log"), DateTime.Now + "  " + ex + Environment.NewLine);
             }
             catch { }
-            MessageBox.Show(ex?.Message ?? "Unknown error", "Bodycam FPV Fix", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            // The UI timer keeps running behind a message box: show each error once, log every repeat.
+            string message = ex?.Message ?? "Unknown error";
+            if (!shownErrors.Add(message)) return;
+            MessageBox.Show(message + Environment.NewLine + Environment.NewLine + "Details: " + Path.Combine(AppSettings.Folder, "error.log"),
+                "Bodycam FPV Fix", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

@@ -72,8 +72,8 @@ $sources = Get-ChildItem (Join-Path $root 'src') -Filter *.cs | ForEach-Object F
 $refs = 'mscorlib.dll', 'System.dll', 'System.Core.dll', 'System.Drawing.dll', 'System.Windows.Forms.dll', 'System.Runtime.Serialization.dll', 'System.Xml.dll', 'netstandard.dll' |
     ForEach-Object { "/reference:$(Join-Path $fw $_)" }
 & $csc /nologo /noconfig /nostdlib+ /target:winexe /platform:anycpu /optimize+ /deterministic+ /debug- /langversion:7.3 `
-    "/pathmap:$root=." "/out:$exe" "/win32manifest:$(Join-Path $root 'app.manifest')" `
-    $refs "/reference:$lib" "/resource:$root/assets/room.png,BodycamFpvFix.room.png" `
+    "/pathmap:$root=." "/out:$exe" "/win32manifest:$(Join-Path $root 'app.manifest')" "/win32icon:$root/assets/app.ico" `
+    $refs "/reference:$lib" "/resource:$root/assets/room.png,BodycamFpvFix.room.png" "/resource:$root/assets/app.ico,BodycamFpvFix.app.ico" `
     "/resource:$root/assets/BebasNeue-Regular.ttf,BodycamFpvFix.BebasNeue-Regular.ttf" `
     "/resource:$root/assets/OFL-BebasNeue.txt,BodycamFpvFix.OFL.txt" $sources $info
 if ($LASTEXITCODE -ne 0) { throw "Compiler failed with exit code $LASTEXITCODE" }

@@ -15,6 +15,9 @@ namespace BodycamFpvFix
         readonly Dictionary<Control, Rectangle> positions = new Dictionary<Control, Rectangle>();
         readonly Dictionary<Control, float> textSizes = new Dictionary<Control, float>();
         readonly Dictionary<ColumnStyle, float> columnWidths = new Dictionary<ColumnStyle, float>();
+        readonly Dictionary<ColumnStyle, Control> columnOwners = new Dictionary<ColumnStyle, Control>();
+        readonly Dictionary<Control, Panel> pageOf = new Dictionary<Control, Panel>();   // every control inside a page
+        readonly HashSet<Panel> stalePages = new HashSet<Panel>();   // hidden pages not yet at the current scale
         readonly Dictionary<string, Panel> pages = new Dictionary<string, Panel>();
         readonly Dictionary<string, Button> navigation = new Dictionary<string, Button>();
         readonly Dictionary<string, Label> readouts = new Dictionary<string, Label>();
@@ -68,11 +71,19 @@ namespace BodycamFpvFix
         void BuildLayout()
         {
             LoadVisuals();
+            SuspendLayout();
             SetStyle(ControlStyles.OptimizedDoubleBuffer | ControlStyles.AllPaintingInWmPaint | ControlStyles.ResizeRedraw, true);
             BackColor = Color.FromArgb(14, 15, 16);
             ForeColor = Color.Gainsboro;
             minimizeWindow = ActionButton("—", () => WindowState = FormWindowState.Minimized);
-            maximizeWindow = ActionButton("□", () => { MaximizedBounds = Screen.FromControl(this).WorkingArea; WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized; });
+            maximizeWindow = ActionButton("□", () =>
+            {
+                // Windows reads the maximized position relative to the monitor, not the whole desktop (second monitor).
+                var screen = Screen.FromControl(this);
+                var area = screen.WorkingArea;
+                MaximizedBounds = new Rectangle(area.X - screen.Bounds.X, area.Y - screen.Bounds.Y, area.Width, area.Height);
+                WindowState = WindowState == FormWindowState.Maximized ? FormWindowState.Normal : FormWindowState.Maximized;
+            });
             closeWindow = ActionButton("×", Close);
             foreach (var button in new[] { minimizeWindow, maximizeWindow, closeWindow })
             {
@@ -82,6 +93,7 @@ namespace BodycamFpvFix
                 button.MinimumSize = Size.Empty;
                 button.Size = new Size(40, 30);
                 Controls.Add(button);
+                textSizes[button] = button.Font.Size;
             }
             minimizeWindow.AccessibleName = "Minimize window";
             maximizeWindow.AccessibleName = "Maximize or restore window";
@@ -173,8 +185,31 @@ namespace BodycamFpvFix
             warningLabel.Font = new Font("Segoe UI", 9);
             warningLabel.Text = "Keep ARM off when on foot.";
             Navigate("CONTROLLER");
+            foreach (var page in pages.Values) MapPage(page, page);
             Resize += (s, e) => ArrangeCockpit();
+            ResumeLayout(false);
             ArrangeCockpit();
+        }
+
+        // Holds the layout of a control and of every container below it, so many bound and font changes cost one
+        // layout pass instead of re-measuring a whole table after each change.
+        static List<Control> SuspendTree(Control root)
+        {
+            var containers = new List<Control>();
+            CollectContainers(root, containers);
+            foreach (var c in containers) c.SuspendLayout();
+            return containers;
+        }
+
+        static void ResumeTree(List<Control> containers, bool performLayout)
+        {
+            foreach (var c in containers) c.ResumeLayout(performLayout);   // parents first, they size their children
+        }
+
+        static void CollectContainers(Control parent, List<Control> list)
+        {
+            list.Add(parent);
+            foreach (Control c in parent.Controls) if (c.HasChildren) CollectContainers(c, list);
         }
 
         Panel NewPage(string name)
@@ -190,7 +225,9 @@ namespace BodycamFpvFix
             var page = NewPage(name);
             foreach (Control control in oldPage.Controls.Cast<Control>().ToArray()) page.Controls.Add(control);
             oldPage.Dispose();
+            var held = SuspendTree(page);
             ThemeTree(page);
+            ResumeTree(held, false);   // ArrangeCockpit lays everything out once at the end of BuildLayout
         }
 
         void ThemeTree(Control parent)
@@ -210,9 +247,18 @@ namespace BodycamFpvFix
                 textSizes[c] = c.Font.Size;
                 if (c is TableLayoutPanel table)
                     foreach (ColumnStyle column in table.ColumnStyles)
-                        if (column.SizeType == SizeType.Absolute) columnWidths[column] = column.Width;
+                        if (column.SizeType == SizeType.Absolute) { columnWidths[column] = column.Width; columnOwners[column] = table; }
             }
         }
+
+        void MapPage(Control parent, Panel page)
+        {
+            foreach (Control c in parent.Controls) { pageOf[c] = page; MapPage(c, page); }
+        }
+
+        // A page other than the active one, or a control on it. Resizing skips those, so it only re-measures what is on
+        // screen; Navigate brings a page to the current size when it is opened.
+        bool OnHiddenPage(Control c) => c is Panel panel && stalePages.Contains(panel) || pageOf.TryGetValue(c, out var page) && stalePages.Contains(page);
 
         Button ActionButton(string text, Action click)
         {
@@ -272,6 +318,7 @@ namespace BodycamFpvFix
             try
             {
             activePage = name;
+            if (stalePages.Contains(pages[name])) ArrangeCockpit();   // bring it to the current size before it shows
             pageTitle.Text = name;
             foreach (var page in pages) page.Value.Visible = page.Key == name;
             foreach (var nav in navigation)
@@ -317,30 +364,49 @@ namespace BodycamFpvFix
             if (arranging || positions.Count == 0 || WindowState == FormWindowState.Minimized ||
                 ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
             arranging = true;
+            float scale = Math.Min(ClientSize.Width / 1280f, ClientSize.Height / 850f);
+            stalePages.Clear();
+            foreach (var page in pages) if (page.Key != activePage) stalePages.Add(page.Value);
+            var held = SuspendTree(this);
+            // Moving a combo box makes Windows repaint the whole composited window at once. Move those last, when every
+            // other box and font is final, so that repaint already shows the finished layout and never old text in new boxes.
+            var last = new List<KeyValuePair<Control, Rectangle>>();
             try
             {
-                float scale = Math.Min(ClientSize.Width / 1280f, ClientSize.Height / 850f);
+                int w = (int)(40 * scale), h = (int)(30 * scale);
+                closeWindow.SetBounds(ClientSize.Width - (int)(45 * scale), 0, w, h);
+                maximizeWindow.SetBounds(ClientSize.Width - (int)(85 * scale), 0, w, h);
+                minimizeWindow.SetBounds(ClientSize.Width - (int)(125 * scale), 0, w, h);
                 foreach (var item in positions)
                 {
+                    if (OnHiddenPage(item.Key)) continue;
                     var r = item.Value;
-                    item.Key.Bounds = new Rectangle((int)(r.X * scale), (int)(r.Y * scale), (int)(r.Width * scale), (int)(r.Height * scale));
+                    var bounds = new Rectangle((int)(r.X * scale), (int)(r.Y * scale), (int)(r.Width * scale), (int)(r.Height * scale));
+                    if (item.Key is ComboBox) last.Add(new KeyValuePair<Control, Rectangle>(item.Key, bounds));
+                    else item.Key.Bounds = bounds;
                 }
-                foreach (var column in columnWidths) column.Key.Width = column.Value * scale;
+                foreach (var column in columnWidths)
+                    if (!OnHiddenPage(columnOwners[column.Key])) column.Key.Width = column.Value * scale;
+                // Design sizes are points at 96 DPI. Each font gets the matching pixel size from the same scale as the
+                // layout, so text always fits its box, whatever display scale Windows reports. Whole pixels, as Windows
+                // draws them anyway: while dragging the window edge a font only changes every few steps, which matters
+                // because a combo box rebuilds its window on every font change. Containers show no text of their own.
                 foreach (var item in textSizes)
                 {
-                    float size = Math.Max(1f, item.Value * scale * 96f / Math.Max(1, DeviceDpi));
-                    if (Math.Abs(item.Key.Font.Size - size) > .1f)
-                    {
-                        var old = item.Key.Font;
-                        ReplaceSizedFont(item.Key, new Font(old.FontFamily, size, old.Style));
-                    }
+                    if (item.Key is Panel || OnHiddenPage(item.Key)) continue;
+                    float size = Math.Max(1f, (float)Math.Round(item.Value * scale * 96f / 72f));
+                    var old = item.Key.Font;
+                    if (old.Unit != GraphicsUnit.Pixel || Math.Abs(old.Size - size) > .1f)
+                        ReplaceSizedFont(item.Key, new Font(old.FontFamily, size, old.Style, GraphicsUnit.Pixel));
                 }
             }
-            finally { arranging = false; }
-            closeWindow.SetBounds(ClientSize.Width - 45, 0, 40, 30);
-            maximizeWindow.SetBounds(ClientSize.Width - 85, 0, 40, 30);
-            minimizeWindow.SetBounds(ClientSize.Width - 125, 0, 40, 30);
-            Invalidate();
+            finally
+            {
+                ResumeTree(held, true);
+                foreach (var move in last) move.Key.Bounds = move.Value;
+                arranging = false;
+                Invalidate();
+            }
         }
 
         void UpdateCockpit()
@@ -368,15 +434,22 @@ namespace BodycamFpvFix
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            if (ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
+            if (IsDisposed || Disposing || ClientSize.Width <= 0 || ClientSize.Height <= 0) return;
             if (backgroundFrame == null || backgroundFrame.Size != ClientSize)
             {
                 backgroundFrame?.Dispose();
-                backgroundFrame = new Bitmap(ClientSize.Width, ClientSize.Height);
+                // Premultiplied pixels copy several times faster, and every transparent label copies its part of this frame.
+                backgroundFrame = new Bitmap(ClientSize.Width, ClientSize.Height, System.Drawing.Imaging.PixelFormat.Format32bppPArgb);
                 using (var graphics = Graphics.FromImage(backgroundFrame))
                     RenderBackground(graphics);
             }
-            e.Graphics.DrawImageUnscaled(backgroundFrame, 0, 0);
+            // Copy only the rectangle being painted: a transparent control asks for just its own bounds.
+            var part = Rectangle.Intersect(e.ClipRectangle, new Rectangle(Point.Empty, backgroundFrame.Size));
+            if (part.Width <= 0 || part.Height <= 0) return;
+            var mode = e.Graphics.CompositingMode;
+            e.Graphics.CompositingMode = CompositingMode.SourceCopy;
+            e.Graphics.DrawImage(backgroundFrame, part, part, GraphicsUnit.Pixel);
+            e.Graphics.CompositingMode = mode;
         }
 
         // Compose child windows together so navigation never exposes half-painted controls.
@@ -423,7 +496,7 @@ namespace BodycamFpvFix
                 int hit = top ? (left ? 13 : right ? 14 : 12) : bottom ? (left ? 16 : right ? 17 : 15) : left ? 10 : right ? 11 : 1;
                 if (hit != 1) { m.Result = (IntPtr)hit; return; }
             }
-            if (p.Y < 30) m.Result = (IntPtr)2;
+            if (p.Y < (closeWindow?.Height ?? 30)) m.Result = (IntPtr)2;
         }
 
         protected override void Dispose(bool disposing)
@@ -431,8 +504,11 @@ namespace BodycamFpvFix
             if (disposing)
             {
                 timer.Dispose();
+                // Closing destroys the child windows first, which can still paint the background once.
                 room?.Dispose();
+                room = null;
                 backgroundFrame?.Dispose();
+                backgroundFrame = null;
             }
             base.Dispose(disposing);
             if (disposing)
@@ -494,6 +570,7 @@ namespace BodycamFpvFix
         public string Caption;
         double x, y;
         bool connected;
+        Font hintFont;   // "NO INPUT", half the caption size so it grows with the window
         public StickScope()
         {
             SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
@@ -506,6 +583,17 @@ namespace BodycamFpvFix
             if (Math.Abs(horizontal - x) < .001 && Math.Abs(vertical - y) < .001 && connected == live) return;
             x = Math.Max(-1, Math.Min(1, horizontal)); y = Math.Max(-1, Math.Min(1, vertical)); connected = live;
             Invalidate();
+        }
+        protected override void OnFontChanged(EventArgs e)
+        {
+            hintFont?.Dispose();
+            hintFont = new Font("Segoe UI", Math.Max(1f, Font.Size / 2), Font.Unit);
+            base.OnFontChanged(e);
+        }
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) { hintFont?.Dispose(); hintFont = null; }
+            base.Dispose(disposing);
         }
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -523,7 +611,7 @@ namespace BodycamFpvFix
                 g.DrawLine(pen, cx - half, cy, cx + half, cy);
                 g.DrawLine(pen, cx, cy - half, cx, cy + half);
                 if (connected) g.FillEllipse(Brushes.WhiteSmoke, cx + (float)x * half - 6 * scale, cy - (float)y * half - 6 * scale, 12 * scale, 12 * scale);
-                else TextRenderer.DrawText(g, "NO INPUT", SystemFonts.SmallCaptionFont, new Rectangle((int)r.X, (int)(cy + 20 * scale), (int)r.Width, 30), Color.Gray, TextFormatFlags.HorizontalCenter);
+                else TextRenderer.DrawText(g, "NO INPUT", hintFont ?? Font, new Rectangle((int)r.X, (int)(cy + 20 * scale), (int)r.Width, (int)(30 * scale)), Color.Gray, TextFormatFlags.HorizontalCenter);
             }
         }
     }

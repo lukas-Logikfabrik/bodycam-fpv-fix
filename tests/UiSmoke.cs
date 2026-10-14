@@ -38,6 +38,7 @@ namespace BodycamFpvFix
                         shot.Save(Path.Combine(destination, page.ToLowerInvariant() + ".png"));
                     }
                 }
+                CheckTextFits(form);
                 var start = form.Controls.Find("bridge-start", true).Single();
                 if (start.Enabled) throw new Exception("Start enabled without a radio");
                 if (form.Controls.Find("axis-preview", true).Length != 2) throw new Exception("Missing stick previews");
@@ -50,6 +51,7 @@ namespace BodycamFpvFix
                     shot.Save(Path.Combine(destination, "minimum.png"));
                 }
                 if (form.ClientSize.Height > 728) throw new Exception("Minimum size exceeds a 768p working area");
+                CheckTextFits(form);
                 var profile = new DeviceProfile { ArmSource = "Button 1", AcroSource = "Button 2" };
                 profile.EnsureButtons();
                 var fake = (Bridge)FormatterServices.GetUninitializedObject(typeof(Bridge));
@@ -86,7 +88,34 @@ namespace BodycamFpvFix
                 if (fonts.Count > before + 5) throw new Exception("Resizing retains superseded fonts");
                 form.Close();
             }
-            Console.WriteLine("PASS: five pages render, two live previews, no-device start disabled, minimum-size layout.");
+            // A hand-edited settings file with nulls must load into a usable profile instead of freezing the UI.
+            string broken = "{\"LastDeviceKey\":null,\"Profiles\":[{\"Key\":\"0001:0002\",\"Value\":{\"Throttle\":null,\"ArmSource\":null," +
+                            "\"Calibration\":null,\"Buttons\":[null,{\"Target\":\"A\",\"Source\":null,\"Mode\":\"x\"}],\"Deadzone\":1}}]}";
+            AppSettings loaded;
+            using (var json = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(broken)))
+                loaded = (AppSettings)new System.Runtime.Serialization.Json.DataContractJsonSerializer(typeof(AppSettings)).ReadObject(json);
+            var repaired = loaded.ProfileFor(new HidDeviceInfo { VendorId = 1, ProductId = 2 });
+            if (repaired.Throttle == null || repaired.Calibration == null || repaired.ArmSource == null || repaired.Deadzone > 0.5 ||
+                repaired.Buttons.Count != PadButtons.All.Length || repaired.Buttons.Any(b => b.Source == null || b.Mode != ButtonMap.Hold))
+                throw new Exception("Damaged settings were not repaired");
+            Console.WriteLine("PASS: five pages render, two live previews, no-device start disabled, minimum-size layout, damaged settings repaired.");
+        }
+        // Font sizes in pixels follow the layout scale only, so a display scale above 100 % cannot make text outgrow its box.
+        // Headings and navigation are single lines in fixed boxes and must fit at every window size.
+        static void CheckTextFits(MainForm form)
+        {
+            var sizes = (Dictionary<Control, float>)Field(form, "textSizes").GetValue(form);
+            int headings = 0;
+            foreach (var c in sizes.Keys)
+            {
+                if (c is Panel || !c.Visible) continue;   // containers show no text; hidden pages are sized when opened
+                if (c.Font.Unit != GraphicsUnit.Pixel) throw new Exception("Font not sized in pixels: " + c.GetType().Name + " \"" + c.Text + "\"");
+                if (!(c is Label || c is Button) || c.AutoSize || c.Text.Length == 0 || c.Font.FontFamily.Name != "Bebas Neue") continue;
+                headings++;
+                int needed = TextRenderer.MeasureText(c.Text, c.Font).Width + c.Padding.Horizontal;
+                if (needed > c.Width) throw new Exception($"Text cut off at {form.ClientSize.Width}x{form.ClientSize.Height}: \"{c.Text}\" needs {needed} px, box is {c.Width} px");
+            }
+            if (headings < 10) throw new Exception("Only " + headings + " headings checked; is the Bebas Neue font missing?");
         }
         static FieldInfo Field(MainForm form, string name) => typeof(MainForm).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
         static void Tick(MainForm form) => typeof(MainForm).GetMethod("Tick", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(form, null);

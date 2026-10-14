@@ -45,6 +45,7 @@ namespace BodycamFpvFix
         readonly int reportLength;
         readonly uint maxData;
         readonly Dictionary<ushort, string> axisByIndex = new Dictionary<ushort, string>();
+        readonly Dictionary<ushort, int> signBitByIndex = new Dictionary<ushort, int>();   // axes with a negative logical minimum
         readonly Dictionary<ushort, int> buttonByIndex = new Dictionary<ushort, int>();
         Task<int> pending;
         byte[] buffer;
@@ -75,6 +76,7 @@ namespace BodycamFpvFix
                     string name = baseName;
                     for (int k = 2; Axes.Exists(a => a.Name == name); k++) name = baseName + k;
                     axisByIndex[(ushort)di] = name;
+                    if (min < 0 && v.BitSize > 0 && v.BitSize < 32) signBitByIndex[(ushort)di] = v.BitSize;
                     Axes.Add(new AxisInfo { Name = name, Min = min, Max = max });
                 }
             }
@@ -97,7 +99,10 @@ namespace BodycamFpvFix
             var h = Native.CreateFile(info.Path, Native.GENERIC_READ, Native.FILE_SHARE_READ | Native.FILE_SHARE_WRITE,
                 IntPtr.Zero, Native.OPEN_EXISTING, Native.FILE_FLAG_OVERLAPPED, IntPtr.Zero);
             if (h.IsInvalid) return null;
-            return new HidJoystick(info, h);
+            var joystick = new HidJoystick(info, h);
+            if (joystick.reportLength > 0) return joystick;
+            joystick.Dispose();   // no usable report description: treat it like a radio that is not there
+            return null;
         }
 
         /// <summary>Reads the next report. Returns null on timeout, throws IOException when the device is gone.</summary>
@@ -129,10 +134,18 @@ namespace BodycamFpvFix
                 return state;
             for (int i = 0; i < len; i++)
             {
-                if (axisByIndex.TryGetValue(list[i].DataIndex, out var axis)) state.Axes[axis] = (int)list[i].RawValue;
+                if (axisByIndex.TryGetValue(list[i].DataIndex, out var axis)) state.Axes[axis] = AxisValue(list[i]);
                 else if (buttonByIndex.TryGetValue(list[i].DataIndex, out var button)) state.Buttons.Add(button); // HidP_GetData lists pressed buttons only
             }
             return state;
+        }
+
+        /// <summary>RawValue holds the bits of the report field; a signed axis (minimum below zero) needs its sign extended.</summary>
+        int AxisValue(Native.HIDP_DATA data)
+        {
+            if (!signBitByIndex.TryGetValue(data.DataIndex, out int bits)) return (int)data.RawValue;
+            uint raw = data.RawValue & ((1u << bits) - 1);
+            return (raw & (1u << (bits - 1))) != 0 ? (int)(raw | ~((1u << bits) - 1)) : (int)raw;
         }
 
         public void Dispose()
