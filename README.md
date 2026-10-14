@@ -57,11 +57,12 @@ Any radio that shows up on the PC as a USB joystick, for example:
 | Radio | Status |
 |---|---|
 | BETAFPV LiteRadio (USB ID `0483:572B`, "BETAFPV Joystick") | **Tested**, works out of the box including the switch mapping |
-| EdgeTX / OpenTX radios (RadioMaster TX16S, Boxer, Pocket, Zorro, TX12, Jumper, FrSky, ...) | Should work. Pick "USB Joystick (HID)" when you plug in, then use **Learn** |
+| RadioMaster Pocket (EdgeTX, "Radiomaster Pocket Joystick") | **Tested** by a user, works after calibration. The switches come in as axes: set Arm and Acro with **Learn** (for example `Ry>1023`) |
+| EdgeTX / OpenTX radios (RadioMaster TX16S, Boxer, Zorro, TX12, Jumper, FrSky, ...) | Should work. Pick "USB Joystick (HID)" when you plug in, then use **Learn** |
 | TBS Tango 2 / Mambo | Should work, use **Learn** |
 | DJI FPV Remote Controller 2/3 in joystick mode | Should work, use **Learn** |
 
-Only the BETAFPV LiteRadio has been tested so far. If you try another radio, please fill in a short [radio report](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/issues/new?template=radio-report.yml), whether it worked or not. Every report goes into this table.
+Tested so far: BETAFPV LiteRadio and RadioMaster Pocket. If you try another radio, please fill in a short [radio report](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/issues/new?template=radio-report.yml), whether it worked or not. Every report goes into this table.
 
 ## Bodycam settings that help
 
@@ -92,7 +93,7 @@ Bodycam's default drone rates are very high (RC Rate 2.0, which is about 1100°/
 Not on its own: Bodycam only reads Xbox controllers. With Bodycam FPV Fix you can, as long as the radio shows up on the PC as a USB joystick.
 
 **Does it work with RadioMaster (TX16S, Boxer, Pocket, Zorro), Jumper, TBS or DJI radios?**
-It should, see [Which radios work?](#which-radios-work). So far only the BETAFPV LiteRadio has been tested.
+It should, see [Which radios work?](#which-radios-work). The RadioMaster Pocket and the BETAFPV LiteRadio are tested.
 
 **Do I need a real drone, Betaflight or a receiver?**
 No. You only need the radio and a USB data cable. Nothing gets bound or flashed.
