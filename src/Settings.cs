@@ -80,6 +80,31 @@ namespace BodycamFpvFix
             Buttons = list;
         }
 
+        /// <summary>
+        /// Fills what a hand-edited or damaged settings file left empty ("Buttons": null and the like), so neither the
+        /// UI nor the reader thread ever meets a null. Like EnsureButtons, it replaces lists instead of editing them.
+        /// </summary>
+        public void Repair()
+        {
+            if (Throttle == null) Throttle = new StickMap("Z", false);
+            if (Yaw == null) Yaw = new StickMap("Rx", false);
+            if (Pitch == null) Pitch = new StickMap("Y", true);
+            if (Roll == null) Roll = new StickMap("X", false);
+            foreach (var m in new[] { Throttle, Yaw, Pitch, Roll }) if (m.Axis == null) m.Axis = "";
+            if (ArmSource == null) ArmSource = "";
+            if (AcroSource == null) AcroSource = "";
+            if (double.IsNaN(Deadzone) || Deadzone < 0 || Deadzone > 0.5) Deadzone = 0.01;
+            if (Calibration == null || Calibration.Values.Any(c => c == null))
+                Calibration = (Calibration ?? new Dictionary<string, AxisCal>()).Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value);
+            if (Buttons == null || Buttons.Any(b => b == null || b.Target == null))
+                Buttons = (Buttons ?? new List<ButtonMap>()).Where(b => b != null && b.Target != null).ToList();
+            foreach (var b in Buttons)
+            {
+                if (b.Source == null) b.Source = "";
+                if (b.Mode != ButtonMap.Hold && b.Mode != ButtonMap.TapOnFlip && b.Mode != ButtonMap.TapWhenOn) b.Mode = ButtonMap.Hold;
+            }
+        }
+
         // The serializer skips constructors and field initializers; keep defaults for fields missing in older files.
         [OnDeserializing]
         void BeforeLoad(StreamingContext c)
@@ -126,10 +151,15 @@ namespace BodycamFpvFix
                     {
                         var loaded = (AppSettings)new DataContractJsonSerializer(typeof(AppSettings)).ReadObject(s);
                         if (loaded.Profiles == null) loaded.Profiles = new Dictionary<string, DeviceProfile>();
+                        if (loaded.LastDeviceKey == null) loaded.LastDeviceKey = "";
                         return loaded;
                     }
             }
-            catch { }
+            catch
+            {
+                // Unreadable file: keep a copy instead of losing every profile with the next save.
+                try { File.Copy(FilePath, FilePath + ".bad", true); } catch { }
+            }
             return new AppSettings();
         }
 
@@ -141,8 +171,9 @@ namespace BodycamFpvFix
                 string tmp = FilePath + ".tmp";
                 using (var s = File.Create(tmp))
                     new DataContractJsonSerializer(typeof(AppSettings)).WriteObject(s, this);
-                if (File.Exists(FilePath)) File.Delete(FilePath);
-                File.Move(tmp, FilePath);
+                // Replace in one step: there is no moment without a settings file, even if the program dies here.
+                if (File.Exists(FilePath)) File.Replace(tmp, FilePath, null);
+                else File.Move(tmp, FilePath);
             }
             catch { }
         }
@@ -154,6 +185,7 @@ namespace BodycamFpvFix
                 p = DeviceProfile.DefaultFor(device);
                 Profiles[device.Key] = p;
             }
+            p.Repair();
             p.EnsureButtons();
             return p;
         }

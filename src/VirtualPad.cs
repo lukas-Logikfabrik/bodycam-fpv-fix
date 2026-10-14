@@ -25,9 +25,17 @@ namespace BodycamFpvFix
         public VirtualPad()
         {
             client = new ViGEmClient();
-            pad = client.CreateXbox360Controller();
-            pad.AutoSubmitReport = false;
-            pad.Connect();
+            try
+            {
+                pad = client.CreateXbox360Controller();
+                pad.AutoSubmitReport = false;
+                pad.Connect();
+            }
+            catch
+            {
+                client.Dispose();   // otherwise every failed Start keeps a connection to the bus open
+                throw;
+            }
         }
 
         /// <summary>Sends one full controller state. Pressed holds button names from PadButtons.All; LT and RT count as fully pressed triggers.</summary>

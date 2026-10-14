@@ -1,8 +1,15 @@
-## Fixed in v1.2.1
+## New in v1.2.2
 
-- Prevent zero-point font errors when minimizing or receiving a temporary zero-size window area.
-- Preserve the last valid layout until the window is restored.
-- Add minimize/restore coverage to the UI regression checks, now run in GitHub Actions.
+- Text no longer outgrows its boxes on high-resolution screens with Windows scaling (reported on a 2880×1800 screen). Font sizes now follow the window size.
+- The window opens at your Windows display scale and fits the screen it opens on.
+- Starts in under half a second instead of about 2.5 seconds. Resizing no longer shows old text in new boxes for a moment and is about three times faster.
+- App icon.
+- Arm, Acro and button taps always end after 150 ms, also with radios that only send a report when something changes. Before, RB or LB could stay pressed while the sticks rested.
+- If the ViGEmBus driver stops while the program runs, the program keeps reading the radio and shows why; press Start again once the driver is back.
+- A damaged settings file is repaired instead of freezing the window. Settings are saved in one step, and an unreadable file is kept as `settings.json.bad`.
+- Radios whose axes report negative values no longer jump from one end to the other at center.
+- Maximize targets the monitor the window is on, also on a second monitor.
+- RadioMaster Pocket confirmed working.
 
 ## Interface introduced in v1.2.0
 

@@ -76,15 +76,20 @@ namespace BodycamFpvFix
         {
             Text = "Bodycam FPV Fix " + DisplayVersion();
             Font = new Font("Segoe UI", 9f);
-            // The cockpit lays out in physical pixels and adjusts point sizes for the display DPI.
+            // The cockpit lays out in physical pixels and sizes its fonts in pixels from the same scale (ArrangeCockpit).
             AutoScaleMode = AutoScaleMode.None;
             AutoScaleDimensions = new SizeF(96f, 96f);
-            var workArea = Screen.PrimaryScreen.WorkingArea;
-            ClientSize = new Size(Math.Min(1280, workArea.Width - 40), Math.Min(850, workArea.Height - 40));
-            MinimumSize = new Size(Math.Min(1000, workArea.Width - 40), Math.Min(680, workArea.Height - 40));
+            // Start size: the 1280 x 850 design at the Windows display scale, shrunk to fit the screen it opens on.
+            var workArea = Screen.FromPoint(MousePosition).WorkingArea;
+            float display = DeviceDpi / 96f;
+            float fit = Math.Min(display, Math.Min((workArea.Width - 40) / 1280f, (workArea.Height - 40) / 850f));
+            ClientSize = new Size((int)(1280 * fit), (int)(850 * fit));
+            MinimumSize = new Size(Math.Min((int)(1000 * display), workArea.Width - 40), Math.Min((int)(680 * display), workArea.Height - 40));
             FormBorderStyle = FormBorderStyle.None;
             StartPosition = FormStartPosition.CenterScreen;
-            try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
+            // All sizes of the app icon (assets\app.ico), so the taskbar and Alt+Tab stay sharp at every display scale.
+            using (var stream = typeof(MainForm).Assembly.GetManifestResourceStream("BodycamFpvFix.app.ico"))
+                if (stream != null) Icon = new Icon(stream);
 
             BuildLayout();
 
@@ -104,8 +109,9 @@ namespace BodycamFpvFix
             if (preview) return; // UI smoke test: no device access, driver install, timers or settings writes.
             Shown += async (s, e) =>
             {
+                timer.Start();   // first, so the window stays alive even if the first device scan fails
+                PrepareHiddenPages();
                 RefreshDevices();
-                timer.Start();
                 bool driverOk = await CheckDriver();
                 if (!driverOk && !driverInstallTried)
                 {
@@ -124,6 +130,7 @@ namespace BodycamFpvFix
         {
             var page = new TabPage("Sticks") { Padding = new Padding(10) };
             var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5 };
+            t.SuspendLayout();   // one layout pass at the end instead of one per added control
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 110));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -140,6 +147,7 @@ namespace BodycamFpvFix
             cal.Controls.Add(calLabel);
             t.Controls.Add(cal, 0, Sticks.Length + 1);
             t.SetColumnSpan(cal, 5);
+            t.ResumeLayout(false);
             page.Controls.Add(t);
             return page;
         }
@@ -168,6 +176,7 @@ namespace BodycamFpvFix
         {
             var page = new TabPage("Arm & Acro") { Padding = new Padding(10) };
             var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 4 };
+            t.SuspendLayout();
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -178,6 +187,7 @@ namespace BodycamFpvFix
             t.SetColumnSpan(lockBox, 4);
             t.Controls.Add(armStateLabel, 0, 3);
             t.SetColumnSpan(armStateLabel, 4);
+            t.ResumeLayout(false);
             page.Controls.Add(t);
             return page;
         }
@@ -204,6 +214,7 @@ namespace BodycamFpvFix
         {
             var page = new TabPage("Buttons") { Padding = new Padding(10), AutoScroll = true };
             var t = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 5 };
+            t.SuspendLayout();
             t.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             t.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
@@ -244,6 +255,7 @@ namespace BodycamFpvFix
                 t.Controls.Add(clear, 4, row);
                 row++;
             }
+            t.ResumeLayout(false);
             page.Controls.Add(t);
             return page;
         }
@@ -388,6 +400,7 @@ namespace BodycamFpvFix
 
         void Tick()
         {
+            PrepareSomeWindows();
             UpdateCockpit();
             if (bridge == null)
             {

@@ -23,6 +23,7 @@ namespace BodycamFpvFix
     {
         const int PulseMs = 150;
         const int SettleMs = 2000;      // a fresh virtual pad drops reports for a moment after plugging in
+        const int ReadMs = 20;          // longest wait for a report before the last one is sent again
 
         readonly HidDeviceInfo device;
         readonly Thread thread;
@@ -67,10 +68,11 @@ namespace BodycamFpvFix
             bool nudged = false;
             var centerSamples = new Dictionary<string, List<int>>();
             var measured = new Dictionary<string, int>();
+            string padError = null;   // why the virtual pad stopped; shown until the next Start
 
-            try
+            while (!stop)
             {
-                while (!stop)
+                try
                 {
                     if (joy == null)
                     {
@@ -88,21 +90,25 @@ namespace BodycamFpvFix
                     }
 
                     InputState s;
-                    try { s = joy.Read(250); }
+                    try { s = joy.Read(ReadMs); }
                     catch (IOException)
                     {
                         joy.Dispose();
                         joy = null;
                         Last = null;
                         SendNeutral(pad);
+                        Thread.Sleep(200);   // a radio that fails right after opening must not spin this loop
                         continue;
                     }
-                    if (s == null) continue;
-                    Last = s;
+                    // Some radios only report changes and go quiet while the sticks rest. Carry on with the last report,
+                    // so a tap on RB, LB or another button still ends after PulseMs instead of staying pressed.
+                    if (s != null) Last = s;
+                    else if ((s = Last) == null) continue;
 
                     // Virtual pad on/off
                     if (outputWanted && pad == null)
                     {
+                        padError = null;
                         try
                         {
                             pad = new VirtualPad();
@@ -116,7 +122,8 @@ namespace BodycamFpvFix
                         catch (Exception ex)
                         {
                             outputWanted = false;
-                            Status = "Virtual controller failed: " + ex.Message;
+                            padError = "Virtual controller failed: " + ex.Message;
+                            Status = padError;
                             continue;
                         }
                     }
@@ -131,7 +138,7 @@ namespace BodycamFpvFix
                     if (pad == null)
                     {
                         Output = Compute(s, p, measured, null, DateTime.Now);
-                        Status = "Radio connected. Press Start to create the virtual Xbox controller.";
+                        Status = padError ?? "Radio connected. Press Start to create the virtual Xbox controller.";
                         continue;
                     }
 
@@ -163,18 +170,23 @@ namespace BodycamFpvFix
                     pad.Send(ToShort(o.Yaw), ToShort(o.ThrottleLocked ? 0 : o.Throttle), ToShort(o.Roll), ToShort(-o.Pitch), o.Pressed);
                     Status = "Running: Bodycam sees an Xbox controller.";
                 }
+                catch (Exception ex)
+                {
+                    // The reader must never die (ViGEmBus removed while running, for example): drop the virtual pad, say
+                    // why, and keep reading the radio so Start works again once the cause is gone.
+                    try { pad?.Dispose(); } catch { }
+                    pad = null;
+                    OutputActive = false;
+                    outputWanted = false;
+                    padError = "Virtual controller stopped: " + ex.Message;
+                    Status = padError;
+                    Thread.Sleep(500);
+                }
             }
-            catch (Exception ex)
-            {
-                Status = "Error: " + ex.Message;
-            }
-            finally
-            {
-                pad?.Dispose();
-                joy?.Dispose();
-                OutputActive = false;
-                DeviceConnected = false;
-            }
+            try { pad?.Dispose(); } catch { }
+            try { joy?.Dispose(); } catch { }
+            OutputActive = false;
+            DeviceConnected = false;
         }
 
         HidJoystick OpenDevice()
