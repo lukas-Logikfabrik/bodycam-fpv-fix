@@ -132,10 +132,10 @@ Settings are saved per radio in `%APPDATA%\BodycamFpvFix\settings.json`.
 Requirements: Windows with .NET Framework 4.8 and Visual Studio 2022 or the Visual Studio Build Tools (for the C# compiler).
 
 ```
-powershell -ExecutionPolicy Bypass -File build.ps1 -Version 1.0.0
+powershell -ExecutionPolicy Bypass -File build.ps1
 ```
 
-The exe, the release zip and their checksums land in `dist\`. The build downloads `Nefarius.ViGEm.Client` 1.21.256 and the build tool `ILRepack` 2.0.48 from NuGet and the ViGEmBus 1.22.0 installer from its GitHub release, checks all SHA-256 values, merges the ViGEm library into the exe and packs the zip.
+The exe, the release zip and their checksums land in `dist\`. The window title of your own build says "(dev build)", and its SHA-256 differs from the release: only the [releases](https://github.com/lukas-Logikfabrik/bodycam-fpv-fix/releases), built by GitHub Actions, carry a version number and the published checksums. The build downloads `Nefarius.ViGEm.Client` 1.21.256 and the build tool `ILRepack` 2.0.48 from NuGet and the ViGEmBus 1.22.0 installer from its GitHub release, checks all SHA-256 values, merges the ViGEm library into the exe and packs the zip.
 
 ## License
 
